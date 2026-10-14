@@ -1,0 +1,149 @@
+<?xml version="1.0"?>
+<!-- Plugins de simulación de MARTHA (Gazebo Classic 11 / ROS 2 Humble). Solo se incluyen con
+     sim=true (lo pone rsp.launch.py en la simulación); fuera de Gazebo no hacen nada.
+
+     Un "plugin" de Gazebo es código que corre dentro de la simulación y conecta Gazebo con ROS.
+     Lee sensores simulados y publica topics, o recibe comandos y mueve el robot.
+     gazebo reference="link" = va pegado a ese link; gazebo sin reference = todo el robot.
+
+     Topics, con los nombres del contrato (los mismos que tendrá el robot real)
+       /nav/scan   sensor_msgs/LaserScan    lidar (Navegación)
+       /base/imu   sensor_msgs/Imu          IMU (Estructura)
+       /cmd_vel    geometry_msgs/Twist      entrada, linear.x, linear.y y angular.z (drive=planar)
+       /base/odom  nav_msgs/Odometry        odometría, más la TF odom -> base_footprint (drive=planar)
+     En el robot real /base/odom la publica el EKF de Estructura (ruedas + IMU). En la simulación,
+     mientras ese EKF no exista, sale directo de planar_move, como dice el contrato.
+
+     Recordatorio (ver martha.urdf.xacro) nunca escribir dos puntos seguidos de un espacio aquí.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <!-- ======================= RPLIDAR A2M8 =======================
+         360 grados, 10 vueltas por segundo, de 0.12 a 8 m (los valores de martha_nav).
+         lidar_samples rayos por vuelta (360 por defecto = 1 por grado). -->
+    <gazebo reference="laser">
+        <sensor name="rplidar_a2m8" type="ray">
+            <always_on>true</always_on>
+            <!-- true = dibuja los rayos azules en la ventana de Gazebo. -->
+            <visualize>true</visualize>
+            <update_rate>10</update_rate>
+            <ray>
+                <scan>
+                    <horizontal>
+                        <samples>$(arg lidar_samples)</samples>
+                        <resolution>1</resolution>
+                        <min_angle>${-pi}</min_angle>
+                        <max_angle>${pi}</max_angle>
+                    </horizontal>
+                </scan>
+                <range>
+                    <min>0.12</min>
+                    <max>8.0</max>
+                    <resolution>0.01</resolution>
+                </range>
+                <!-- Ruido gaussiano de 1 cm en cada medida, para que la simulación no sea
+                     irrealmente perfecta. -->
+                <noise>
+                    <type>gaussian</type>
+                    <mean>0.0</mean>
+                    <stddev>0.01</stddev>
+                </noise>
+            </ray>
+            <!-- Publica las medidas en ROS. Su salida "~/out" se renombra a /nav/scan. -->
+            <plugin name="rplidar_a2m8_driver" filename="libgazebo_ros_ray_sensor.so">
+                <ros>
+                    <remapping>~/out:=/nav/scan</remapping>
+                </ros>
+                <output_type>sensor_msgs/LaserScan</output_type>
+                <frame_name>laser</frame_name>
+            </plugin>
+        </sensor>
+    </gazebo>
+
+    <!-- ======================= IMU ======================= -->
+    <gazebo reference="imu_link">
+        <sensor name="imu_sensor" type="imu">
+            <always_on>true</always_on>
+            <!-- 100 mediciones por segundo. -->
+            <update_rate>100</update_rate>
+            <visualize>false</visualize>
+            <!-- Ruido gaussiano en la velocidad de giro (rad/s) y en la aceleración (m/s2), por
+                 eje. Los mismos valores que la IMU simulada de Milo. -->
+            <imu>
+                <angular_velocity>
+                    <x><noise type="gaussian"><mean>0</mean><stddev>2e-4</stddev></noise></x>
+                    <y><noise type="gaussian"><mean>0</mean><stddev>2e-4</stddev></noise></y>
+                    <z><noise type="gaussian"><mean>0</mean><stddev>2e-4</stddev></noise></z>
+                </angular_velocity>
+                <linear_acceleration>
+                    <x><noise type="gaussian"><mean>0</mean><stddev>1.7e-2</stddev></noise></x>
+                    <y><noise type="gaussian"><mean>0</mean><stddev>1.7e-2</stddev></noise></y>
+                    <z><noise type="gaussian"><mean>0</mean><stddev>1.7e-2</stddev></noise></z>
+                </linear_acceleration>
+            </imu>
+            <plugin name="imu_plugin" filename="libgazebo_ros_imu_sensor.so">
+                <ros>
+                    <remapping>~/out:=/base/imu</remapping>
+                </ros>
+                <!-- false = orientación absoluta (no toma la pose inicial como cero). -->
+                <initial_orientation_as_reference>false</initial_orientation_as_reference>
+                <frame_name>imu_link</frame_name>
+            </plugin>
+        </sensor>
+    </gazebo>
+
+    <!-- ======================= Movimiento, drive=planar =======================
+         planar_move recibe /cmd_vel (linear.x, linear.y, angular.z en el frame del robot) y
+         mueve el cuerpo entero a esa velocidad, sin simular las ruedas. Es lo que hace la base
+         real visto desde Navegación, y deja a Navegación trabajar sin esperar a Estructura. -->
+    <xacro:unless value="${'$(arg drive)' == 'mecanum'}">
+        <gazebo>
+            <plugin name="gazebo_ros_planar_move" filename="libgazebo_ros_planar_move.so">
+                <ros>
+                    <remapping>cmd_vel:=/cmd_vel</remapping>
+                    <remapping>odom:=/base/odom</remapping>
+                </ros>
+                <update_rate>100</update_rate>
+                <publish_rate>50</publish_rate>
+                <publish_odom>true</publish_odom>
+                <!-- Publica la TF odom -> base_footprint (en el robot real lo hará el EKF). -->
+                <publish_odom_tf>true</publish_odom_tf>
+                <odometry_frame>odom</odometry_frame>
+                <robot_base_frame>base_footprint</robot_base_frame>
+                <covariance_x>0.0001</covariance_x>
+                <covariance_y>0.0001</covariance_y>
+                <covariance_yaw>0.001</covariance_yaw>
+            </plugin>
+        </gazebo>
+    </xacro:unless>
+
+    <!-- ======================= Movimiento, drive=mecanum =======================
+         Las 4 ruedas con motor de velocidad a través de ros2_control. El controlador
+         (mecanum_drive_controller, config/martha_controllers.yaml) convierte una velocidad del
+         cuerpo en la velocidad de cada rueda. Falta conectarlo con /cmd_vel y /base/odom. -->
+    <xacro:if value="${'$(arg drive)' == 'mecanum'}">
+        <ros2_control name="GazeboSystem" type="system">
+            <hardware>
+                <plugin>gazebo_ros2_control/GazeboSystem</plugin>
+            </hardware>
+            <xacro:macro name="wheel_interface" params="joint">
+                <joint name="${joint}">
+                    <command_interface name="velocity"/>
+                    <state_interface name="velocity"/>
+                    <state_interface name="position"/>
+                </joint>
+            </xacro:macro>
+            <xacro:wheel_interface joint="base_front_left_wheel_joint" />
+            <xacro:wheel_interface joint="base_front_right_wheel_joint" />
+            <xacro:wheel_interface joint="base_rear_left_wheel_joint" />
+            <xacro:wheel_interface joint="base_rear_right_wheel_joint" />
+        </ros2_control>
+
+        <gazebo>
+            <plugin name="gazebo_ros2_control" filename="libgazebo_ros2_control.so">
+                <parameters>$(arg controllers_file)</parameters>
+            </plugin>
+        </gazebo>
+    </xacro:if>
+
+</robot>

@@ -1,0 +1,121 @@
+# RViz de la simulación de Martha. Se carga con "rviz2 -d este_archivo". Ojo: si en RViz haces
+# File > Save, RViz reescribe este archivo y BORRA estos comentarios.
+#
+# Cada display lee un topic de ROS y lo dibuja:
+#   RobotModel  /robot_description  el modelo 3D de Martha
+#   LaserScan   /nav/scan           puntos rojos del lidar
+#   Odometry    /base/odom          flechas de la odometría (cada 0.25 m)
+#   TF          (apagado)           ejes de cada frame
+# Fixed Frame = odom: el mundo queda quieto y Martha se mueve por él.
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Help Height: 0
+    Tree Height: 400
+Visualization Manager:
+  Class: ""
+  Displays:
+    # Grilla del suelo, celdas de 1 m.
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+      Cell Size: 1
+      Plane Cell Count: 20
+      Color: 160; 160; 164
+      Alpha: 0.3
+      Reference Frame: <Fixed Frame>
+      Value: true
+    - Class: rviz_default_plugins/RobotModel
+      Name: RobotModel
+      Enabled: true
+      Description Source: Topic
+      Description Topic:
+        Value: /robot_description
+        Depth: 5
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+      Visual Enabled: true
+      Collision Enabled: false
+      Alpha: 1
+      Value: true
+    # El lidar llega "Best Effort" (como los sensores reales): RViz tiene que pedirlo igual.
+    - Class: rviz_default_plugins/LaserScan
+      Name: LaserScan
+      Enabled: true
+      Topic:
+        Value: /nav/scan
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+      Style: Points
+      Size (Pixels): 3
+      Color Transformer: FlatColor
+      Color: 255; 40; 40
+      Decay Time: 0
+      Value: true
+    - Class: rviz_default_plugins/Odometry
+      Name: Odometry
+      Enabled: true
+      Topic:
+        Value: /base/odom
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+      Keep: 40
+      Position Tolerance: 0.25
+      Angle Tolerance: 0.5
+      Shape:
+        Value: Arrow
+        Color: 255; 200; 0
+        Alpha: 1
+        Shaft Length: 0.3
+        Shaft Radius: 0.03
+        Head Length: 0.1
+        Head Radius: 0.06
+      Covariance:
+        Value: false
+      Value: true
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Enabled: false
+      Show Names: true
+      Show Axes: true
+      Show Arrows: false
+      Marker Scale: 0.3
+      Value: false
+  Enabled: true
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: odom
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/Measure
+  Value: true
+  # Vista desde arriba, siguiendo a Martha.
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Name: Current View
+      Distance: 9
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: 0
+      Focal Shape Fixed Size: true
+      Focal Shape Size: 0.05
+      Near Clip Distance: 0.01
+      Pitch: 1.2
+      Yaw: 3.14
+      Target Frame: base_footprint
+      Value: Orbit (rviz_default_plugins)
+    Saved: ~
+Window Geometry:
+  Width: 1400
+  Height: 900

@@ -1,0 +1,19 @@
+# Dependencias externas de Martha: código de otros repositorios que se descarga al construir la
+# imagen de Docker (no se copia a este repo). Formato .repos de vcstool, el estándar de ROS:
+#   repositories:
+#     <carpeta>:            dónde queda dentro de /opt/martha_drivers/src
+#       type: git
+#       url: <repositorio>
+#       version: <commit, tag o rama>   -> conviene un commit fijo: todos compilan lo mismo
+#
+# El Dockerfile hace "vcs import src < martha.repos" y compila todo en /opt/martha_drivers.
+# Para agregar un driver: sumar su entrada aquí y reconstruir la imagen (./sim.sh stop y
+# ./sim.sh): martha_up usa --build y Docker solo rehace los pasos que cambiaron.
+# Sin Docker se usa igual:  vcs import ros2_ws/src < docker/martha.repos
+repositories:
+  # Driver de los RPLIDAR de Slamtec. Es el mismo commit que usa Milo (17-06-2024, "bugfix: set
+  # the minimum distance to 5cm") y también maneja el A2M8 de Martha (sllidar_a2m8_launch.py).
+  sllidar_ros2:
+    type: git
+    url: https://github.com/Slamtec/sllidar_ros2.git
+    version: 34300099fadfc772965962dec837bf436706188f
