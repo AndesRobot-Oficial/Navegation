@@ -8,3 +8,5 @@ ros2_ws/install/
 ros2_ws/log/
 __pycache__/
 .pytest_cache/
+# CLAUDE.md  instrucciones locales para Claude Code, no son parte del proyecto
+CLAUDE.md
