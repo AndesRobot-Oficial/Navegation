@@ -41,6 +41,7 @@ services:
       # Socket de X11: por aquí el contenedor dibuja ventanas en tu pantalla.
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ../ros2_ws:/ros2_ws:rw       # tu workspace, editable desde el host
+      - ../maps:/maps:rw             # mapas y waypoints (martha_ws/maps), los usa ./sim.sh nav
       # Caché de modelos de Gazebo, guardada en un volumen de Docker para no descargarla cada vez.
       - gazebo_cache:/home/ros/.gazebo
     # Dispositivos: /dev/dri = la GPU (Intel/AMD) para OpenGL acelerado.

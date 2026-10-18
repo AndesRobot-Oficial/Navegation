@@ -127,6 +127,37 @@ amarillas, `/base/odom`).
 
 **Apagar:** `Ctrl+C` en la terminal 1 y después `./sim.sh stop`.
 
+### Navegación autónoma con el mapa y los waypoints
+
+| Terminal | Comando | Qué hace |
+|:-:|---|---|
+| 1 | `./sim.sh nav` | Gazebo + Martha + Nav2 sobre el mapa `maps/casa.yaml` + RViz de navegación |
+| 2 | `./sim.sh ir --lista` | ver los waypoints de `maps/casa_lugares.yaml` |
+| 2 | `./sim.sh ir sofa` | mandar a Martha a un waypoint (o varios: `./sim.sh ir sofa table base`) |
+| 2 | `./sim.sh teleop` | con la navegación corriendo, el teclado le quita el control a Nav2 mientras lo usas |
+
+También se le puede dar una meta con la herramienta **2D Goal Pose** de RViz. En RViz se ven el
+mapa, los costmaps, la ruta planeada (verde), las partículas de AMCL y los waypoints (flechas
+azules con su nombre).
+
+**Waypoints.** Cada línea de `maps/casa_lugares.yaml` es un lugar: dónde se para Martha (`x`, `y`
+en metros, frame `map`) y hacia dónde mira (`yaw` en radianes). Hay 28:
+
+- los 6 que se anotaron a mano con Milo (`sofa`, `dining_table`, `table`, `base`, `indoor`,
+  `outdoor`);
+- las 18 ubicaciones del rulebook (los números azules de `robocup_casa.png`), a 0.80 m del mueble
+  y mirándolo, calculadas con el generador de la casa de `milo_ws`. La del sofá se llama `sofa_7`;
+- el centro de cada sala: `laundry`, `bedroom`, `living_room`, `kitchen`. Para agregar uno, lleva a Martha
+al lugar (teleop) y lee su pose con `ros2 run tf2_ros tf2_echo map base_footprint` dentro de
+`./sim.sh shell`. `./sim.sh pruebas` revisa que Martha quepa en cada waypoint sin tocar el mapa.
+
+**Cómo está armado** (siguiendo la [arquitectura](https://alejapinzonf.github.io/Robot_arquitecture_ROS2/)):
+`ir_a` pide la acción **`/nav/navigate_to_pose`** del contrato, igual que lo hará
+`task_orchestrator_node`. Nav2 usa el modelo de movimiento **Omni** (AMCL y el controlador DWB
+saben que Martha va de lado) y publica en `/nav/cmd_vel_planner`; `twist_mux` (el `cmd_vel_mux`
+de la arquitectura) elige entre Nav2, `/nav/cmd_vel_look` y el teclado y publica `/cmd_vel`. El
+lidar pasa antes por un filtro que borra los postes de la torre (`/nav/scan` → `/nav/scan_filtered`).
+
 ---
 
 ## 3. Todos los comandos
@@ -143,6 +174,8 @@ amarillas, `/base/odom`).
 | `./sim.sh stop` | apagar el contenedor |
 | `./sim.sh cpu` / `software` / `sin-gazebo` | sin NVIDIA / render por CPU / sin ventana de Gazebo |
 | `./sim.sh gpu` | con qué tarjeta gráfica está dibujando |
+| `./sim.sh nav [mapa]` | navegación autónoma con un mapa de `maps/` (por defecto `casa`) |
+| `./sim.sh ir <lugar> [...]` | mandar a Martha a uno o varios waypoints (`--lista` para verlos) |
 
 ---
 
@@ -152,9 +185,12 @@ amarillas, `/base/odom`).
 martha_ws/
 ├── sim.sh                     todo se lanza desde aquí
 ├── docker/                    imagen de Docker (la de milo_ws + lo que necesita Martha)
+├── maps/                      mapa de la casa (casa.pgm + casa.yaml) y sus waypoints
+│                              (casa_lugares.yaml); en Docker se ve como /maps
 └── ros2_ws/src/
     ├── andesrobot_description   URDF de Martha (chasis, ruedas mecanum, lidar, IMU, torre)
-    └── andesrobot_gazebo        casa RoboCup@Home y spawn de Martha en Gazebo
+    ├── andesrobot_gazebo        casa RoboCup@Home y spawn de Martha en Gazebo
+    └── andesrobot_navigation    Nav2 (modelo Omni), twist_mux, filtro de la torre y waypoints
 ```
 
 **El URDF** (`andesrobot_description/urdf/martha.urdf.xacro`) viene de `martha_nav` (la tesis de
@@ -199,7 +235,8 @@ suyo: `ROS_DOMAIN_ID=31 ./sim.sh`.
 ## 6. Estado y lo que falta
 
 **Funciona:** Docker, Martha en la casa RoboCup@Home con `planar_move`, teleop holonómico, lidar e
-IMU simulados con los nombres del contrato, pruebas del URDF.
+IMU simulados con los nombres del contrato, pruebas del URDF, navegación autónoma con Nav2 (modelo
+Omni) sobre el mapa de la casa y waypoints con nombre.
 
 **Lo que viene** (en este orden aproximado):
 
@@ -208,9 +245,10 @@ IMU simulados con los nombres del contrato, pruebas del URDF.
 | Estructura | Base real: firmware del ESP32 (cinemática mecanum) y puente serie → `/cmd_vel` / `/base/odom` | `firmware/`, `andesrobot_base` |
 | Estructura | EKF ruedas + IMU (`robot_localization`) → `/base/odom` | `andesrobot_base` |
 | Estructura | Simulación mecanum completa: puente `/cmd_vel` → `mecanum_drive_controller` → `/base/odom` | `andesrobot_base` |
-| Navegación | Driver del A2M8 real → `/nav/scan`; filtro de los postes de la torre; SLAM y mapa de la casa | `andesrobot_slam` |
-| Navegación | Nav2 para Martha (modelo Omni, controlador con velocidad lateral), lugares con nombre | `andesrobot_navigation` |
-| Navegación | Filtro de seguridad que también mire a los lados | `andesrobot_safety` |
+| Navegación | Driver del A2M8 real → `/nav/scan`; SLAM y un mapa propio de Martha (el de `maps/` lo hizo Milo) | `andesrobot_slam` |
+| Navegación | `/nav/pose` y el servicio `/nav/set_initial_pose` del contrato (hoy AMCL parte en la pose del launch) | `andesrobot_navigation` |
+| Navegación | Mapa y `base_zone` propios de Martha (la arquitectura los pide por robot; hoy `base` es la de Milo) | `maps/` |
+| Navegación | Filtro de seguridad que también mire a los lados; el mux pasa a publicar `/nav/cmd_vel_mux` | `andesrobot_safety` |
 | Ambos | `robot.sh` para el portátil de Martha | raíz |
 
 ---
@@ -225,6 +263,7 @@ IMU simulados con los nombres del contrato, pruebas del URDF.
 | El teleop no responde | haz clic en la terminal del teleop antes de apretar teclas |
 | Cambié código y no se nota | `./sim.sh build` (con la simulación abierta en otra terminal) |
 | Martha no se mueve de lado | el teleop necesita **Shift** apretado (`J` / `L` mayúsculas) |
+| Con `./sim.sh nav`, `ir` se queda en *Esperando la acción* o Nav2 rechaza la meta | Nav2 no terminó de activarse (a veces se pierde una respuesta al arrancar, en el log sale `failed to send response`): `Ctrl+C` y otra vez `./sim.sh nav` |
 
 ---
 

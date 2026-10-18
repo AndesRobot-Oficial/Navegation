@@ -105,9 +105,10 @@ martha_save_map() {
   echo "[martha] Mapa guardado en ros2_ws/src/andesrobot_slam/maps/$name.pgm / .yaml"
 }
 
-# Teleop por teclado. Por ahora publica directo en /cmd_vel, que es lo que mueve a Martha.
-# Cuando exista el filtro de seguridad (andesrobot_safety) pasará a "-r cmd_vel:=cmd_vel_teleop",
-# como en Milo, para que el teclado también pase por el filtro.
+# Teleop por teclado. Sin navegación publica directo en /cmd_vel, que es lo que mueve a Martha.
+# Con ./sim.sh nav corriendo (existe el nodo twist_mux) publica en /cmd_vel_teleop, la entrada de
+# mayor prioridad del mux: mientras tocas teclas le quitas el control a Nav2, y medio segundo
+# después de soltar, Nav2 lo recupera (ver andesrobot_navigation/config/twist_mux.yaml).
 # Martha es holonómica: con Shift apretado (U I O J K L M < >) el teclado manda también linear.y
 # y Martha se mueve de lado.
-TELEOP_CMD='ros2 run teleop_twist_keyboard teleop_twist_keyboard'
+TELEOP_CMD='if ros2 node list 2>/dev/null | grep -qx /twist_mux; then echo "[martha] Navegación corriendo: el teclado entra al mux por /cmd_vel_teleop"; ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r cmd_vel:=/cmd_vel_teleop; else ros2 run teleop_twist_keyboard teleop_twist_keyboard; fi'
