@@ -8,7 +8,8 @@
 # LaserScanBoxFilter: pasa cada lectura del scan a coordenadas de box_frame (con TF) y, si cae
 # dentro de la caja [min, max], la reemplaza por NaN (= "lectura inválida", Nav2 la ignora).
 # La caja es la huella de Martha (0.58 x 0.41 m, la caja de contacto del URDF) con 1 cm de margen,
-# en base_footprint (el centro del robot en el suelo). Los postes están en x = ±0.13, y = ±0.11.
+# en base_footprint (el centro del robot en el suelo). Los postes (20 x 40 mm) están en
+# x = -0.033 y -0.208, y = ±0.11, a 0.226 y 0.391 m detrás del lidar (Martha medida el 2026-10-21).
 #
 # Nombre del nodo (name= en navigation.launch.py).
 filtro_torre:
@@ -22,7 +23,8 @@ filtro_torre:
         max_x: 0.30
         min_y: -0.215
         max_y: 0.215
-        # Alto de la caja: desde el suelo hasta arriba de la torre (el plano del lidar va a 0.26 m).
+        # Alto de la caja: desde el suelo hasta 1 m. Basta con que cubra el plano del lidar
+        # (0.231 m), que es donde caen todas las lecturas del scan.
         min_z: -0.10
         max_z: 1.00
         # false = borrar lo que está DENTRO de la caja (true = quedarse solo con eso).
