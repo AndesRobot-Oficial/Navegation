@@ -127,36 +127,86 @@ amarillas, `/base/odom`).
 
 **Apagar:** `Ctrl+C` en la terminal 1 y después `./sim.sh stop`.
 
-### Navegación autónoma con el mapa y los waypoints
+### Navegación autónoma: lugares con nombre
+
+El mapa de la casa ya está en `maps/casa.yaml` (lo hizo Milo; en la simulación coincide con el
+mundo de Gazebo). Martha parte **afuera de la puerta del living**, mirando hacia adentro.
+Informe completo, con la figura de todos los lugares:
+[docs/navegacion/README.md](docs/navegacion/README.md).
+
+#### Paso 1 · Anotar dónde queda cada cosa
+
+El mapa solo sabe qué está libre y qué está ocupado; no sabe qué es "el sofá". Un **lugar** es
+una pose en el mapa: `x`, `y` y hacia dónde mira Martha (`yaw`). Se anotan así, **con
+`./sim.sh nav` abierto**:
+
+```bash
+./sim.sh shell
+ros2 run tf2_ros tf2_echo map base_footprint
+```
+
+Lleva a Martha con el teleop (`./sim.sh teleop`) frente a cada lugar, mirándolo, y lee:
+
+```
+- Translation: [-3.147, -4.026, -0.000]          ← x, y   (los 2 primeros)
+- Rotation: in RPY (radian) [0.000, -0.000, -1.551]   ← yaw (el último)
+```
+
+Anótalo en `maps/casa_lugares.yaml`, una línea por lugar:
+
+```yaml
+sofa: {x: -3.15, y: -4.03, yaw: -1.55}
+dining_table: {x: 1.572, y: -2.738, yaw: 0.398}
+```
+
+> En la simulación el mapa coincide con el mundo de Gazebo, así que estas poses sirven siempre
+> que vuelvas a abrir la casa.
+
+Hoy hay **28 lugares**: los 6 que se anotaron con Milo, las 18 ubicaciones del rulebook y el
+centro de cada sala (de dónde sale cada uno, en el
+[informe](docs/navegacion/README.md#origen)). `./sim.sh pruebas` revisa que Martha quepa en cada
+uno sin tocar el mapa.
+
+#### Paso 2 · Mandar a Martha a un lugar
+
+**a) A mano** (para entender qué pasa por dentro), en `./sim.sh shell`:
+
+```bash
+ros2 action send_goal /nav/navigate_to_pose nav2_msgs/action/NavigateToPose \
+  "{pose: {header: {frame_id: map}, pose: {position: {x: 1.572, y: -2.738}, orientation: {z: 0.1977, w: 0.9803}}}}" --feedback
+```
+
+Nav2 no recibe el `yaw` directo sino como cuaternión: **`z = sin(yaw/2)`, `w = cos(yaw/2)`**.
+La acción lleva el nombre del contrato de la
+[arquitectura](https://alejapinzonf.github.io/Robot_arquitecture_ROS2/), `/nav/navigate_to_pose`,
+la misma que pedirá `task_orchestrator_node`.
+
+**b) Por nombre:**
 
 | Terminal | Comando | Qué hace |
 |:-:|---|---|
-| 1 | `./sim.sh nav` | Gazebo + Martha + Nav2 sobre el mapa `maps/casa.yaml` + RViz de navegación |
-| 2 | `./sim.sh ir --lista` | ver los waypoints de `maps/casa_lugares.yaml` |
-| 2 | `./sim.sh ir sofa` | mandar a Martha a un waypoint (o varios: `./sim.sh ir sofa table base`) |
-| 2 | `./sim.sh teleop` | con la navegación corriendo, el teclado le quita el control a Nav2 mientras lo usas |
+| 1 | `./sim.sh nav` | Gazebo + AMCL + Nav2 + RViz con el mapa `casa` |
+| 2 | `./sim.sh ir --lista` | ver tus lugares |
+| 2 | `./sim.sh ir sofa` | ir al sofá |
+| 2 | `./sim.sh ir sofa base dining_table` | varios seguidos |
 
-También se le puede dar una meta con la herramienta **2D Goal Pose** de RViz. En RViz se ven el
-mapa, los costmaps, la ruta planeada (verde), las partículas de AMCL y los waypoints (flechas
-azules con su nombre).
+También sirve **2D Goal Pose** en RViz (clic en el mapa y arrastrar para la dirección).
+Si tocas el teleop le quitas el control a Nav2 mientras aprietes teclas.
 
-**Waypoints.** Cada línea de `maps/casa_lugares.yaml` es un lugar: dónde se para Martha (`x`, `y`
-en metros, frame `map`) y hacia dónde mira (`yaw` en radianes). Hay 28:
+<details>
+<summary><b>Cómo fluyen las velocidades</b> (clic para ver)</summary>
 
-- los 6 que se anotaron a mano con Milo (`sofa`, `dining_table`, `table`, `base`, `indoor`,
-  `outdoor`);
-- las 18 ubicaciones del rulebook (los números azules de `robocup_casa.png`), a 0.80 m del mueble
-  y mirándolo, calculadas con el generador de la casa de `milo_ws`. La del sofá se llama `sofa_7`;
-- el centro de cada sala: `laundry`, `bedroom`, `living_room`, `kitchen`. Para agregar uno, lleva a Martha
-al lugar (teleop) y lee su pose con `ros2 run tf2_ros tf2_echo map base_footprint` dentro de
-`./sim.sh shell`. `./sim.sh pruebas` revisa que Martha quepa en cada waypoint sin tocar el mapa.
+```
+Nav2 ──────── /nav/cmd_vel_planner ──┐
+look_controller ─ /nav/cmd_vel_look ─┼─► twist_mux ─► /cmd_vel ─► Martha
+teclado ─────────── /cmd_vel_teleop ─┘   (el teclado tiene prioridad)
+```
 
-**Cómo está armado** (siguiendo la [arquitectura](https://alejapinzonf.github.io/Robot_arquitecture_ROS2/)):
-`ir_a` pide la acción **`/nav/navigate_to_pose`** del contrato, igual que lo hará
-`task_orchestrator_node`. Nav2 usa el modelo de movimiento **Omni** (AMCL y el controlador DWB
-saben que Martha va de lado) y publica en `/nav/cmd_vel_planner`; `twist_mux` (el `cmd_vel_mux`
-de la arquitectura) elige entre Nav2, `/nav/cmd_vel_look` y el teclado y publica `/cmd_vel`. El
-lidar pasa antes por un filtro que borra los postes de la torre (`/nav/scan` → `/nav/scan_filtered`).
+Es la cadena de la arquitectura. Martha todavía no tiene filtro de seguridad: cuando exista, el
+mux publicará en `/nav/cmd_vel_mux` y el filtro en `/cmd_vel`. El lidar pasa antes por un filtro
+que borra los postes de la torre (`/nav/scan` → `/nav/scan_filtered`); Nav2 usa el modelo de
+movimiento **Omni**, así que Martha puede ir de lado.
+</details>
 
 ---
 
@@ -185,11 +235,12 @@ lidar pasa antes por un filtro que borra los postes de la torre (`/nav/scan` →
 martha_ws/
 ├── sim.sh                     todo se lanza desde aquí
 ├── docker/                    imagen de Docker (la de milo_ws + lo que necesita Martha)
+├── docs/navegacion/           informe de los lugares con nombre (y sus figuras)
 ├── maps/                      mapa de la casa (casa.pgm + casa.yaml) y sus waypoints
 │                              (casa_lugares.yaml); en Docker se ve como /maps
 └── ros2_ws/src/
     ├── andesrobot_description   URDF de Martha (chasis, ruedas mecanum, lidar, IMU, torre)
-    ├── andesrobot_gazebo        casa RoboCup@Home y spawn de Martha en Gazebo
+    ├── andesrobot_gazebo        casa RoboCup@Home (y su generador, tools/) y spawn de Martha
     └── andesrobot_navigation    Nav2 (modelo Omni), twist_mux, filtro de la torre y waypoints
 ```
 
@@ -208,8 +259,8 @@ navegación) y representa a la Martha real. Argumentos:
 > rompe. `./sim.sh pruebas` lo revisa.
 
 **La casa** (`andesrobot_gazebo/worlds/robocup_casa.world`) es la misma de `milo_ws`: 12.6 × 12.6 m,
-puertas de 1.4 m. Se genera con `andesrobot_gazebo/tools/gen_casa_robocup.py` de `milo_ws`; si
-cambia allá, se copia aquí. Martha (huella 0.58 × 0.41 m, radio de giro 0.44 m) cabe donde cabe
+puertas de 1.4 m. Se genera con `andesrobot_gazebo/tools/gen_casa_robocup.py`, copiado igual
+desde `milo_ws`; si cambia allá, se copian aquí el script y el mundo. Martha (huella 0.58 × 0.41 m, radio de giro 0.44 m) cabe donde cabe
 Milo (radio de giro 0.59 m).
 
 ---
