@@ -1,0 +1,44 @@
+# Waypoints de la casa RoboCup@Home: una línea por lugar, pose en el frame map.
+#   x, y en metros; yaw en radianes (hacia dónde mira Martha, 0 = +x del mapa).
+# Se usan con:  ./sim.sh ir <lugar>   (./sim.sh ir --lista para verlos todos)
+
+# --- Anotados a mano con Milo (tf2_echo map base_footprint), 11-oct-2026 ---
+sofa: {x: -3.15, y: -4.03, yaw: -1.55}
+dining_table: {x: 1.572, y: -2.738, yaw: 0.398}
+table: {x: -3.943, y: -4.308, yaw: -1.828}
+base: {x: -2.145, y: -1.770, yaw: -1.564}
+indoor: {x: -6.644, y: -2.153, yaw: -0.259}
+outdoor: {x: -5.700, y: -3.982, yaw: -3.171}
+
+# --- Ubicaciones del rulebook (el número del plano va en el comentario) ---
+# Calculadas por andesrobot_gazebo/tools/gen_casa_robocup.py de milo_ws: a 0.80 m de la cara
+# del mueble, mirándolo. La del sofá se llama sofa_7 porque "sofa" ya es la de arriba.
+# Revisadas para la huella de Martha (test_ubicaciones.py) y en simulación.
+# Laundry
+laundry_table: {x: -4.298, y: 4.650, yaw: 1.571}   # 1
+washing_machine: {x: -2.310, y: 4.750, yaw: 1.571}   # 2
+shelf: {x: -4.900, y: 2.142, yaw: -1.571}   # 3
+laundry_trash_bin: {x: -3.472, y: 2.182, yaw: -1.571}   # 4
+# Bedroom
+bed: {x: 2.840, y: 1.612, yaw: 3.142}   # 5
+bedside_table: {x: 0.910, y: 3.895, yaw: -1.571}   # 17
+coat_rack: {x: 5.143, y: 4.893, yaw: 0.785}   # 18
+# Living room
+tv_stand: {x: -4.312, y: -0.358, yaw: 1.571}   # 6
+sofa_7: {x: -3.150, y: -4.450, yaw: -1.571}   # 7
+coffee_table: {x: -0.970, y: -4.855, yaw: -1.571}   # 8
+# Kitchen
+cabinet: {x: 1.240, y: -0.350, yaw: 3.142}   # 9
+refrigerator: {x: 4.700, y: -0.350, yaw: 0.000}   # 10
+counter: {x: 0.940, y: -4.750, yaw: -1.571}   # 11
+sink: {x: 1.820, y: -4.750, yaw: -1.571}   # 12
+cooking_table: {x: 2.660, y: -4.750, yaw: -1.571}   # 13
+dishwasher: {x: 4.340, y: -4.750, yaw: -1.571}   # 14
+kitchen_trash_bin: {x: 4.870, y: -3.360, yaw: 0.000}   # 15
+dinner_table: {x: 4.056, y: -3.020, yaw: 2.356}   # 16
+
+# --- Centro de cada sala (para "anda a la cocina") ---
+laundry: {x: -3.080, y: 3.500, yaw: 0.000}
+bedroom: {x: 3.360, y: 3.920, yaw: 0.000}
+living_room: {x: -2.940, y: -2.380, yaw: 0.000}
+kitchen: {x: 1.960, y: -3.780, yaw: 1.571}

@@ -1,0 +1,346 @@
+# Nav2 (Humble) para Martha: base HOLONÓMICA (4 ruedas mecanum), footprint centrado, RPLIDAR A2M8.
+#
+# Basado en nav2_params.yaml de milo_ws (que a su vez viene de nav2_bringup, rama humble). Lo que
+# cambia para Martha está marcado con "MARTHA:". La arquitectura de AndesRobot pide para Martha:
+#   - modelo de movimiento "Omni" (AMCL y controlador saben que puede ir de lado),
+#   - DWB o MPPI con velocidad lateral (Regulated Pure Pursuit no sirve para ir de lado),
+#   - el footprint de Martha.
+#
+# Flujo de velocidades (nombres del contrato, ver launch/navigation.launch.py):
+#   controller_server --/nav/cmd_vel_raw--> velocity_smoother --/nav/cmd_vel_planner--> twist_mux
+#   behavior_server (spin, backup...) ------------------------/nav/cmd_vel_planner--> twist_mux
+#   teclado ---------------------------------------------------/cmd_vel_teleop------> twist_mux
+#   twist_mux --/cmd_vel--> Gazebo (planar_move) o la base real
+#
+# Tópicos del contrato que usa Nav2:
+#   /nav/scan_filtered  el scan sin los postes de la torre (filtro_torre.yaml, interno)
+#   /base/odom          odometría + TF odom -> base_footprint (la publica Estructura o Gazebo)
+#   /nav/map            el mapa guardado (lo sirve map_server)
+#
+# Footprint de Martha en base_footprint (= centro del robot): la caja de contacto del URDF,
+# 0.58 x 0.41 m -> x de -0.29 a +0.29, y de -0.205 a +0.205. Radio que la contiene = 0.355 m.
+# Las puertas de la casa miden 1.4 m: Martha pasa de frente, de lado y puede girar dentro.
+
+amcl:
+  ros__parameters:
+    use_sim_time: True
+    # MARTHA: con el modelo Omni, alpha5 es el ruido del movimiento lateral.
+    alpha1: 0.2
+    alpha2: 0.2
+    alpha3: 0.2
+    alpha4: 0.2
+    alpha5: 0.2
+    base_frame_id: "base_footprint"
+    beam_skip_distance: 0.5
+    beam_skip_error_threshold: 0.9
+    beam_skip_threshold: 0.3
+    do_beamskip: false
+    global_frame_id: "map"
+    lambda_short: 0.1
+    laser_likelihood_max_dist: 2.0
+    laser_max_range: 8.0             # MARTHA: alcance del A2M8 (el del lidar simulado)
+    laser_min_range: 0.12            # MARTHA: mínimo del A2M8
+    laser_model_type: "likelihood_field"
+    max_beams: 90
+    max_particles: 2000
+    min_particles: 500
+    odom_frame_id: "odom"
+    pf_err: 0.05
+    pf_z: 0.99
+    recovery_alpha_fast: 0.0
+    recovery_alpha_slow: 0.0
+    resample_interval: 1
+    robot_model_type: "nav2_amcl::OmniMotionModel"   # MARTHA: holonómica
+    save_pose_rate: 0.5
+    sigma_hit: 0.2
+    tf_broadcast: true
+    transform_tolerance: 1.0
+    update_min_a: 0.15
+    update_min_d: 0.15
+    z_hit: 0.5
+    z_max: 0.05
+    z_rand: 0.5
+    z_short: 0.05
+    scan_topic: /nav/scan_filtered   # MARTHA: sin los postes de la torre
+    map_topic: /nav/map              # MARTHA: nombre del contrato
+    # Pose inicial conocida = donde parte Martha (afuera de la puerta del living). La pasa el
+    # launch (x:= y:= yaw:=); así no hay que dar "2D Pose Estimate" en RViz.
+    set_initial_pose: true
+    initial_pose:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      yaw: 0.0
+
+bt_navigator:
+  ros__parameters:
+    use_sim_time: True
+    global_frame: map
+    robot_base_frame: base_footprint
+    odom_topic: /base/odom           # MARTHA: nombre del contrato
+    bt_loop_duration: 10
+    default_server_timeout: 20
+    wait_for_service_timeout: 1000
+    plugin_lib_names:
+      - nav2_compute_path_to_pose_action_bt_node
+      - nav2_compute_path_through_poses_action_bt_node
+      - nav2_smooth_path_action_bt_node
+      - nav2_follow_path_action_bt_node
+      - nav2_spin_action_bt_node
+      - nav2_wait_action_bt_node
+      - nav2_assisted_teleop_action_bt_node
+      - nav2_back_up_action_bt_node
+      - nav2_drive_on_heading_bt_node
+      - nav2_clear_costmap_service_bt_node
+      - nav2_is_stuck_condition_bt_node
+      - nav2_goal_reached_condition_bt_node
+      - nav2_goal_updated_condition_bt_node
+      - nav2_globally_updated_goal_condition_bt_node
+      - nav2_is_path_valid_condition_bt_node
+      - nav2_initial_pose_received_condition_bt_node
+      - nav2_reinitialize_global_localization_service_bt_node
+      - nav2_rate_controller_bt_node
+      - nav2_distance_controller_bt_node
+      - nav2_speed_controller_bt_node
+      - nav2_truncate_path_action_bt_node
+      - nav2_truncate_path_local_action_bt_node
+      - nav2_goal_updater_node_bt_node
+      - nav2_recovery_node_bt_node
+      - nav2_pipeline_sequence_bt_node
+      - nav2_round_robin_node_bt_node
+      - nav2_transform_available_condition_bt_node
+      - nav2_time_expired_condition_bt_node
+      - nav2_path_expiring_timer_condition
+      - nav2_distance_traveled_condition_bt_node
+      - nav2_single_trigger_bt_node
+      - nav2_goal_updated_controller_bt_node
+      - nav2_is_battery_low_condition_bt_node
+      - nav2_navigate_through_poses_action_bt_node
+      - nav2_navigate_to_pose_action_bt_node
+      - nav2_remove_passed_goals_action_bt_node
+      - nav2_planner_selector_bt_node
+      - nav2_controller_selector_bt_node
+      - nav2_goal_checker_selector_bt_node
+      - nav2_controller_cancel_bt_node
+      - nav2_path_longer_on_approach_bt_node
+      - nav2_wait_cancel_bt_node
+      - nav2_spin_cancel_bt_node
+      - nav2_back_up_cancel_bt_node
+      - nav2_assisted_teleop_cancel_bt_node
+      - nav2_drive_on_heading_cancel_bt_node
+      - nav2_is_battery_charging_condition_bt_node
+
+bt_navigator_navigate_through_poses_rclcpp_node:
+  ros__parameters:
+    use_sim_time: True
+
+bt_navigator_navigate_to_pose_rclcpp_node:
+  ros__parameters:
+    use_sim_time: True
+
+controller_server:
+  ros__parameters:
+    use_sim_time: True
+    # 20 veces por segundo mira dónde está el robot y la ruta (lo que dice la arquitectura).
+    controller_frequency: 20.0
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.001  # MARTHA: Milo usa 0.5 (= anula la velocidad lateral)
+    min_theta_velocity_threshold: 0.001
+    failure_tolerance: 0.3
+    progress_checker_plugin: "progress_checker"
+    goal_checker_plugins: ["general_goal_checker"]
+    controller_plugins: ["FollowPath"]
+    progress_checker:
+      plugin: "nav2_controller::SimpleProgressChecker"
+      required_movement_radius: 0.3
+      movement_time_allowance: 15.0
+    general_goal_checker:
+      stateful: True
+      plugin: "nav2_controller::SimpleGoalChecker"
+      xy_goal_tolerance: 0.12
+      yaw_goal_tolerance: 0.15
+    # DWB holonómico: además de avanzar (x) y girar (theta) prueba velocidades de lado (y).
+    # En cada ciclo simula vx_samples x vy_samples x vtheta_samples trayectorias candidatas,
+    # revisa el footprint completo en cada una y elige la de menor costo según los "critics".
+    FollowPath:
+      plugin: "dwb_core::DWBLocalPlanner"
+      debug_trajectory_details: True
+      min_vel_x: -0.20                 # MARTHA: puede retroceder (el lidar ve 360°)
+      min_vel_y: -0.30                 # MARTHA: de lado, hacia la derecha
+      max_vel_x: 0.40
+      max_vel_y: 0.30                  # MARTHA: de lado, hacia la izquierda
+      max_vel_theta: 1.0
+      min_speed_xy: 0.0
+      max_speed_xy: 0.40               # rapidez máxima combinando x e y
+      min_speed_theta: 0.0
+      acc_lim_x: 1.0
+      acc_lim_y: 1.0                   # MARTHA
+      acc_lim_theta: 2.0
+      decel_lim_x: -1.0
+      decel_lim_y: -1.0                # MARTHA
+      decel_lim_theta: -2.0
+      vx_samples: 11
+      vy_samples: 7                    # MARTHA: Milo usa 5 pero con max_vel_y = 0
+      vtheta_samples: 15
+      sim_time: 1.5
+      linear_granularity: 0.05
+      angular_granularity: 0.025
+      transform_tolerance: 0.2
+      xy_goal_tolerance: 0.12
+      trans_stopped_velocity: 0.05
+      short_circuit_trajectory_evaluation: True
+      stateful: True
+      critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
+      BaseObstacle.scale: 0.02
+      PathAlign.scale: 32.0
+      PathAlign.forward_point_distance: 0.1
+      GoalAlign.scale: 24.0
+      GoalAlign.forward_point_distance: 0.1
+      PathDist.scale: 32.0
+      GoalDist.scale: 24.0
+      RotateToGoal.scale: 32.0
+      RotateToGoal.slowing_factor: 5.0
+      RotateToGoal.lookahead_time: -1.0
+
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      update_frequency: 5.0
+      publish_frequency: 2.0
+      global_frame: odom
+      robot_base_frame: base_footprint
+      use_sim_time: True
+      rolling_window: true
+      width: 4
+      height: 4
+      resolution: 0.05
+      footprint: "[[0.29, 0.205], [0.29, -0.205], [-0.29, -0.205], [-0.29, 0.205]]"   # MARTHA
+      footprint_padding: 0.02
+      plugins: ["obstacle_layer", "inflation_layer"]
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: True
+        observation_sources: scan
+        scan:
+          topic: /nav/scan_filtered    # MARTHA
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+          data_type: "LaserScan"
+          inf_is_valid: True           # "inf" = nada en esa dirección -> limpiar igual
+          raytrace_max_range: 6.0
+          raytrace_min_range: 0.0
+          obstacle_max_range: 5.0
+          obstacle_min_range: 0.0
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        # MARTHA: puertas de 1.4 m. Con radio 0.55 y caída media el costo es bajo al centro de la
+        # puerta: el planificador pasa por el medio en vez de rozar un marco.
+        cost_scaling_factor: 4.0
+        inflation_radius: 0.55
+      always_send_full_costmap: True
+
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      update_frequency: 1.0
+      publish_frequency: 1.0
+      global_frame: map
+      robot_base_frame: base_footprint
+      use_sim_time: True
+      footprint: "[[0.29, 0.205], [0.29, -0.205], [-0.29, -0.205], [-0.29, 0.205]]"   # MARTHA
+      footprint_padding: 0.02
+      resolution: 0.05
+      track_unknown_space: true
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: True
+        observation_sources: scan
+        scan:
+          topic: /nav/scan_filtered    # MARTHA
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+          data_type: "LaserScan"
+          inf_is_valid: True
+          raytrace_max_range: 6.0
+          raytrace_min_range: 0.0
+          obstacle_max_range: 5.0
+          obstacle_min_range: 0.0
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_topic: /nav/map            # MARTHA: nombre del contrato
+        map_subscribe_transient_local: True
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 4.0
+        inflation_radius: 0.55
+      always_send_full_costmap: True
+
+map_server:
+  ros__parameters:
+    use_sim_time: True
+    yaml_filename: ""                  # lo pone el launch (argumento map:=)
+
+planner_server:
+  ros__parameters:
+    expected_planner_frequency: 20.0
+    use_sim_time: True
+    planner_plugins: ["GridBased"]
+    GridBased:
+      plugin: "nav2_navfn_planner/NavfnPlanner"
+      tolerance: 0.3
+      use_astar: true
+      allow_unknown: true
+
+smoother_server:
+  ros__parameters:
+    use_sim_time: True
+    smoother_plugins: ["simple_smoother"]
+    simple_smoother:
+      plugin: "nav2_smoother::SimpleSmoother"
+      tolerance: 1.0e-10
+      max_its: 1000
+      do_refinement: True
+
+behavior_server:
+  ros__parameters:
+    costmap_topic: local_costmap/costmap_raw
+    footprint_topic: local_costmap/published_footprint
+    cycle_frequency: 10.0
+    behavior_plugins: ["spin", "backup", "drive_on_heading", "assisted_teleop", "wait"]
+    spin:
+      plugin: "nav2_behaviors/Spin"
+    backup:
+      plugin: "nav2_behaviors/BackUp"
+    drive_on_heading:
+      plugin: "nav2_behaviors/DriveOnHeading"
+    wait:
+      plugin: "nav2_behaviors/Wait"
+    assisted_teleop:
+      plugin: "nav2_behaviors/AssistedTeleop"
+    global_frame: odom
+    robot_base_frame: base_footprint
+    transform_tolerance: 0.1
+    use_sim_time: true
+    simulate_ahead_time: 2.0
+    max_rotational_vel: 1.0
+    min_rotational_vel: 0.4
+    rotational_acc_lim: 2.0
+
+velocity_smoother:
+  ros__parameters:
+    use_sim_time: True
+    smoothing_frequency: 20.0
+    scale_velocities: False
+    feedback: "OPEN_LOOP"
+    # [x, y, theta]. MARTHA: la componente y (de lado) ya no es 0.
+    max_velocity: [0.40, 0.30, 1.0]
+    min_velocity: [-0.20, -0.30, -1.0]
+    max_accel: [1.0, 1.0, 2.0]
+    max_decel: [-1.0, -1.0, -2.0]
+    odom_topic: /base/odom             # MARTHA (no se usa con OPEN_LOOP; queda por claridad)
+    odom_duration: 0.1
+    deadband_velocity: [0.0, 0.0, 0.0]
+    velocity_timeout: 1.0
