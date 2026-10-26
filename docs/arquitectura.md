@@ -186,7 +186,7 @@ contrato.
 
 ## Diferencias conocidas entre la página y este workspace
 
-Estado al 2026-10-24. La página dice cómo debe quedar el robot; aquí, lo que todavía no coincide.
+Estado al 2026-10-26. La página dice cómo debe quedar el robot; aquí, lo que todavía no coincide.
 
 **Robot y simulación**
 
@@ -197,6 +197,8 @@ Estado al 2026-10-24. La página dice cómo debe quedar el robot; aquí, lo que 
   2026-10-21).
 - **`/base/odom` en Gazebo**: `planar_move` lo publica directo, sin `/base/wheel_odom` ni EKF. Está
   permitido por la página mientras el EKF no exista.
+- **`robot_state_publisher` en el robot real**: es de Estructura, pero su bringup todavía no
+  existe, así que `./robot.sh` lo lanza desde Navegación (`MODELO=false` lo apaga).
 - **Base real**: todavía no hay `base_driver_node`, `imu_driver_node` ni EKF en este repo. Lo
   decidido es la ESP32 con micro-ROS (publica `/base/imu` y el estado de cada rueda) y en el
   laptop ros2_control con `topic_based_ros2_control` + `mecanum_drive_controller`, que publica
@@ -213,9 +215,13 @@ Estado al 2026-10-24. La página dice cómo debe quedar el robot; aquí, lo que 
   20 y navegar 10). Sirve para probar y mapear; en el launch de competencia no se lanza.
 - **Filtro de la torre**: `filtro_torre.yaml` (laser_filters) borra los postes de la torre del scan
   y publica `/nav/scan_filtered`. Es interno de Navegación, como dice la página.
-- **Falta todavía**: `/nav/pose`, el servicio `/nav/set_initial_pose`, el modo mapeo (`slam_node`)
-  y los nodos `person_follower_node`, `look_controller_node` y `door_detector_node` con sus
-  interfaces (`/nav/follow_person`, `/nav/look`, `/nav/look_ahead`, `/nav/detect_door`).
+- **Modo mapeo** (2026-10-26): `slam_node` es slam_toolbox (online async) en `andesrobot_slam`.
+  Lee `/nav/scan_filtered` y publica `/nav/map` y la TF `map -> odom`; todavía no publica
+  `/nav/pose`. Se lanza con `./sim.sh mapear` o `./robot.sh mapear`; el mapa se guarda en
+  `maps/` y la competencia lo usa con map_server + AMCL.
+- **Falta todavía**: `/nav/pose`, el servicio `/nav/set_initial_pose` y los nodos
+  `person_follower_node`, `look_controller_node` y `door_detector_node` con sus interfaces
+  (`/nav/follow_person`, `/nav/look`, `/nav/look_ahead`, `/nav/detect_door`).
 
 ## Contrato completo
 

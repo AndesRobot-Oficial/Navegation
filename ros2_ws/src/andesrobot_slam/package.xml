@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<!-- Modo MAPEO de Martha (slam_node de la arquitectura): filtro de la torre + slam_toolbox.
+     Mismo nombre de paquete que en milo_ws. Todo viene en la imagen Docker (docker/Dockerfile). -->
+<package format="3">
+  <name>andesrobot_slam</name>
+  <version>0.1.0</version>
+  <description>Mapeo 2D de MARTHA con slam_toolbox, en Gazebo y en el robot real.</description>
+  <maintainer email="nicolas58david@hotmail.com">Mocolax</maintainer>
+  <license>Apache-2.0</license>
+
+  <!-- exec_depend = paquetes que tienen que estar instalados para EJECUTAR este. -->
+  <exec_depend>slam_toolbox</exec_depend>
+  <exec_depend>laser_filters</exec_depend>
+  <exec_depend>nav2_map_server</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <!-- filtro_torre.yaml y lidar.launch.py viven en andesrobot_navigation; la casa en Gazebo, en
+       andesrobot_gazebo; el URDF, en andesrobot_description. -->
+  <exec_depend>andesrobot_navigation</exec_depend>
+  <exec_depend>andesrobot_gazebo</exec_depend>
+  <exec_depend>andesrobot_description</exec_depend>
+  <test_depend>python3-pytest</test_depend>
+  <test_depend>python3-yaml</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

@@ -15,8 +15,10 @@
 #   ./sim.sh gpu             muestra con qué tarjeta está dibujando el contenedor
 #   ./sim.sh nav [mapa]      navegación autónoma (Nav2) con un mapa de maps/ (default: casa)
 #   ./sim.sh ir <lugar> [...] (otra terminal) mandar a Martha a waypoints: ./sim.sh ir sofa / --lista
+#   ./sim.sh mapear          mapeo: Gazebo + slam_toolbox + RViz (manejar con ./sim.sh teleop)
+#   ./sim.sh mapa [nombre]   (otra terminal) guardar el mapa en maps/  (default: sim_AAAAMMDD_HHMM)
 set -e
-# (Las líneas 2-17 de arriba son la ayuda: el "sed -n '2,17p'" de más abajo las imprime
+# (Las líneas 2-19 de arriba son la ayuda: el "sed -n '2,19p'" de más abajo las imprime
 #  cuando escribes una opción que no existe. Por eso los comentarios explicativos van aquí.)
 #
 # Es el mismo esquema de milo_ws: el código vive en tu PC (martha_ws/ros2_ws) y el contenedor lo
@@ -37,6 +39,9 @@ case "$1" in
   # Teleop: abre el teclado dentro del contenedor ya levantado (con ./sim.sh nav corriendo, el
   # teclado entra al mux y le quita el control a Nav2 mientras tocas teclas; ver lib.sh).
   teleop) martha_need_running; exec $DC exec ros bash -ic "$TELEOP_CMD" ;;
+  # Mapa: guarda lo que armó slam_toolbox (con ./sim.sh mapear corriendo) en maps/<nombre>.
+  # ${2:-...} = el nombre que diste, o si no diste ninguno, "sim_" + fecha y hora.
+  mapa)   martha_save_map "${2:-sim_$(date +%Y%m%d_%H%M)}"; exit 0 ;;
   # Shell: una terminal bash dentro del contenedor.
   shell)  martha_need_running; exec $DC exec ros bash ;;
   # Build: recompilar ros2_ws (después de cambiar código en tu PC).
@@ -57,12 +62,17 @@ case "$1" in
   ir)     martha_need_running; shift
           exec $DC exec ros bash -ic "ros2 run andesrobot_navigation ir_a $*" ;;
   # Navegación: necesita un mapa en maps/ (<mapa>.yaml + .pgm) y sus waypoints (<mapa>_lugares.yaml).
+  # Partida: casa.yaml cubre la de siempre (afuera de la puerta del living). Un mapa hecho con
+  # ./sim.sh mapear no la cubre, porque el mapeo parte adentro (sim_mapping.launch.py de
+  # andesrobot_slam): con esos mapas Martha y AMCL parten donde empezó el mapeo, como en el
+  # robot real.
   nav)    MAPA="${2:-casa}"
+          PARTIDA=""; [ "$MAPA" = casa ] || PARTIDA="x:=-6.3 y:=-1.862 yaw:=0.0"
           [ -f "maps/$MAPA.yaml" ] || { echo "[martha] No existe el mapa maps/$MAPA.yaml. Hay:"; ls maps/*.yaml 2>/dev/null | grep -v _lugares | xargs -n1 basename | sed 's/.yaml$//; s/^/  /'; exit 1; } ;;
   # Estas opciones no hacen nada aquí: siguen hacia abajo a levantar la simulación.
-  ""|cpu|sin-gazebo|software|mecanum) ;;
-  # Cualquier otra cosa: mostrar la ayuda (líneas 2 a 17 de este archivo) y salir con error.
-  *) sed -n '2,17p' "$0"; exit 1 ;;
+  ""|cpu|sin-gazebo|software|mecanum|mapear) ;;
+  # Cualquier otra cosa: mostrar la ayuda (líneas 2 a 19 de este archivo) y salir con error.
+  *) sed -n '2,19p' "$0"; exit 1 ;;
 esac
 
 # Por defecto se abre la ventana de Gazebo; con "sin-gazebo" no (ahorra GPU, la física igual corre).
@@ -85,7 +95,18 @@ if [ "$1" = "nav" ]; then
   echo "[martha]   ./sim.sh ir sofa           mandar a Martha (o '2D Goal Pose' en RViz)"
   echo "[martha]   ./sim.sh teleop            el teclado le quita el control a Nav2 mientras lo usas"
   echo
-  exec $DC exec ros bash -ic "ros2 launch andesrobot_navigation sim_navigation.launch.py map:=/maps/$MAPA.yaml ubicaciones:=/maps/${MAPA}_lugares.yaml"
+  exec $DC exec ros bash -ic "ros2 launch andesrobot_navigation sim_navigation.launch.py map:=/maps/$MAPA.yaml ubicaciones:=/maps/${MAPA}_lugares.yaml $PARTIDA"
+fi
+
+# Mapeo: Gazebo + filtro de la torre + slam_toolbox + RViz (andesrobot_slam). Sin twist_mux: el
+# teclado publica directo en /cmd_vel. El mapa nace donde está Martha al arrancar.
+if [ "$1" = "mapear" ]; then
+  echo
+  echo "[martha] Mapeo de la casa. En otra terminal:"
+  echo "[martha]   ./sim.sh teleop            manejar a Martha (despacio, volviendo por lugares ya vistos)"
+  echo "[martha]   ./sim.sh mapa <nombre>     guardar el mapa en maps/<nombre>.pgm / .yaml"
+  echo
+  exec $DC exec ros bash -ic "ros2 launch andesrobot_slam sim_mapping.launch.py gazebo_gui:=$GAZEBO_GUI"
 fi
 
 echo

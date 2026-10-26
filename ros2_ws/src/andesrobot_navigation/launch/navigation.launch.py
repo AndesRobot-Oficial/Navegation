@@ -19,7 +19,8 @@ con remaps: en nav2_bringup (Humble) los tópicos son /map, /cmd_vel y /navigate
 """
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
@@ -38,15 +39,11 @@ def generate_launch_description():
     tf = [('/tf', 'tf'), ('/tf_static', 'tf_static')]
 
     # ---------------- Filtro del lidar ----------------
-    # Saca del scan los postes de la torre (ver config/filtro_torre.yaml).
-    filtro = Node(
-        package='laser_filters',
-        executable='scan_to_scan_filter_chain',
-        name='filtro_torre',
-        output='screen',
-        parameters=[PathJoinSubstitution([pkg, 'config', 'filtro_torre.yaml']),
-                    {'use_sim_time': use_sim_time}],
-        remappings=[('scan', '/nav/scan'), ('scan_filtered', '/nav/scan_filtered')],
+    # Saca del scan los postes de la torre (launch/filtro_torre.launch.py, el mismo del mapeo).
+    filtro = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([pkg, 'launch', 'filtro_torre.launch.py'])),
+        launch_arguments={'use_sim_time': use_sim_time}.items(),
     )
 
     # ---------------- Localización ----------------

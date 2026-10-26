@@ -6,6 +6,7 @@ llevando a Martha al lugar y leyendo su pose con  ros2 run tf2_ros tf2_echo map 
 """
 
 import math
+import os
 
 import yaml
 
@@ -20,8 +21,14 @@ def load(path=None):
     Acepta dos formatos (los mismos de milo_ws):
       - simple, una línea por lugar:   sofa: {x: -3.15, y: -4.03, yaw: -1.55}
       - completo: frame_id: map  +  ubicaciones: {sofa: {...}, ...}  (room, id opcionales)
+
+    Si el archivo no existe (un mapa recién hecho, todavía sin lugares anotados) devuelve
+    ningún lugar en vez de fallar: así la navegación igual arranca con ese mapa.
     """
-    with open(path or DEFAULT_PATH) as fh:
+    path = path or DEFAULT_PATH
+    if not os.path.isfile(path):
+        return 'map', {}
+    with open(path) as fh:
         data = yaml.safe_load(fh) or {}
     if 'ubicaciones' in data:
         locs = data['ubicaciones']

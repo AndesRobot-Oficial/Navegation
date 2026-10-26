@@ -96,13 +96,18 @@ martha_need_running() {
   martha_running || { echo "[martha] El contenedor no está levantado. Primero: $0"; exit 1; }
 }
 
-# Guarda el mapa que está armando slam_toolbox (topic /map) como .pgm (imagen) + .yaml (metadatos).
-# Se guarda en ros2_ws/src/andesrobot_slam/maps/ que está montada desde tu PC: no se pierde.
+# Guarda el mapa que está armando slam_toolbox (/nav/map) como .pgm (imagen) + .yaml (metadatos).
+# Va a /maps del contenedor = la carpeta maps/ del repo de Navegación en tu PC: no se pierde al
+# apagar el contenedor, y ./sim.sh nav <nombre> / ./robot.sh nav <nombre> lo usan tal cual.
+# (Solo el repo de Navegación monta /maps: en el de Estructura no se mapea.)
 martha_save_map() {
   local name="$1"
   martha_need_running
-  martha_run "ros2 run nav2_map_server map_saver_cli -f /ros2_ws/src/andesrobot_slam/maps/$name"
-  echo "[martha] Mapa guardado en ros2_ws/src/andesrobot_slam/maps/$name.pgm / .yaml"
+  # No pisar un mapa que ya existe (casa, lab_robotica...): elige otro nombre o bórralo a mano.
+  [ ! -e "maps/$name.yaml" ] || { echo "[martha] Ya existe maps/$name.yaml: usa otro nombre"; exit 1; }
+  # map_saver_cli espera el mapa en el tópico -t y lo escribe en -f (sin extensión).
+  martha_run "ros2 run nav2_map_server map_saver_cli -f /maps/$name -t /nav/map"
+  echo "[martha] Mapa guardado en maps/$name.pgm / .yaml. Sus lugares van en maps/${name}_lugares.yaml"
 }
 
 # Teleop por teclado. Sin navegación publica directo en /cmd_vel, que es lo que mueve a Martha.

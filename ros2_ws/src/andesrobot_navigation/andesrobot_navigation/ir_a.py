@@ -78,6 +78,10 @@ def main():
     args = ap.parse_args(remove_ros_args(sys.argv)[1:])
 
     frame, locs = U.load(args.ubicaciones)
+    if not locs:
+        print(f'No hay waypoints en {args.ubicaciones or U.DEFAULT_PATH}. Se anotan a mano: '
+              'ver docs/navegacion/README.md')
+        return 1
     if args.lista or not args.lugares:
         for n, d in sorted(locs.items()):
             print(f'  {n:16s} x={d["x"]:6.2f}  y={d["y"]:6.2f}  '

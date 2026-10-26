@@ -58,6 +58,23 @@ Visualization Manager:
       Collision Enabled: false
       Alpha: 1
       Value: true
+    # Lidar crudo (/nav/scan, gris), debajo del filtrado: donde hay gris sin rojo encima, el
+    # filtro de la torre borró el punto (los 4 postes).
+    - Class: rviz_default_plugins/LaserScan
+      Name: LaserScan (crudo)
+      Enabled: true
+      Topic:
+        Value: /nav/scan
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+      Style: Points
+      Size (Pixels): 5
+      Color Transformer: FlatColor
+      Color: 150; 150; 150
+      Decay Time: 0
+      Value: true
     # Lidar filtrado. "Best Effort" = misma calidad de servicio que usa el lidar.
     - Class: rviz_default_plugins/LaserScan
       Name: LaserScan (filtrado)

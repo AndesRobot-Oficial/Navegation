@@ -47,6 +47,11 @@ def test_formato_simple(tmp_path):
     assert locs['sofa']['name'] == 'sofa' and locs['mesa']['yaw'] == 0.0
 
 
+def test_sin_archivo_no_hay_lugares(tmp_path):
+    # Un mapa recién guardado todavía no tiene <mapa>_lugares.yaml: la navegación igual arranca.
+    assert U.load(str(tmp_path / 'nuevo_lugares.yaml')) == ('map', {})
+
+
 def test_resolve_por_nombre_y_prefijo():
     locs = {'dining_table': {'name': 'dining_table'}, 'table': {'name': 'table'},
             'base': {'name': 'base'}}
