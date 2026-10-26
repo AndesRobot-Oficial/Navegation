@@ -1,0 +1,26 @@
+# LiDAR REAL de Martha: RPLIDAR A2M8 con el driver sllidar_ros2 de Slamtec (viene en la imagen,
+# ver docker/martha.repos). Lo lanza launch/lidar.launch.py; publica /nav/scan (contrato).
+#
+# En la arquitectura este nodo es "nav_drivers": el LiDAR lo configura Navegación porque es quien
+# lo usa. En simulación no corre: ahí /nav/scan sale del plugin de Gazebo (martha.sim.xacro).
+#
+# Valores probados en Martha física con el repo de la tesis (mapeo del 2026-10-21).
+# El puerto serie (serial_port) no va aquí: lo pone el launch (lidar_port:=, por defecto el
+# nombre fijo /dev/martha_lidar de docker/udev/99-martha.rules).
+nav_drivers:
+  ros__parameters:
+    channel_type: serial
+    # El A2M8 habla a 115200 baudios (el C1 de Milo usa 460800). Con otro valor no arranca.
+    serial_baudrate: 115200
+    # Frame del scan: el link "laser" del URDF, 0.19 m delante de base_link y con el plano del
+    # scan a 0.231 m del suelo. El mismo nombre que en Gazebo.
+    frame_id: laser
+    # false = el LiDAR va montado hacia arriba (no de cabeza).
+    inverted: false
+    # true = el driver reparte las medidas en ángulos fijos: el scan sale más limpio y con el
+    # mismo número de rayos en cada vuelta (AMCL y slam_toolbox lo prefieren).
+    angle_compensate: true
+    # Modo del A2M8 con más alcance en superficies oscuras (es el que usó la tesis).
+    scan_mode: Sensitivity
+    # Vueltas por segundo = scans por segundo. El contrato pide /nav/scan a 10 Hz.
+    scan_frequency: 10.0

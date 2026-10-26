@@ -1,0 +1,11 @@
+# Mapa REAL del laboratorio de robótica, hecho con Martha física el 2026-10-21 con slam_toolbox y el
+# LiDAR A2M8 (repo de la tesis, Mocolax/martha_nav). Es para el robot, no para Gazebo:
+# no hay un mundo que lo copie. El origen (0, 0) del frame map es donde estaba Martha
+# al empezar a mapear.
+image: lab_robotica.pgm
+mode: trinary
+resolution: 0.05
+origin: [-4.92, -4.41, 0]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.25

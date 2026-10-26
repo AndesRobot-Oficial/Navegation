@@ -1,0 +1,30 @@
+# twist_mux = cmd_vel_mux de la arquitectura: elige qué velocidad llega a la base.
+# Gana la entrada de MAYOR prioridad que haya publicado hace menos de "timeout" segundos.
+# Si nadie publica por 0.5 s, el mux se calla y la base se detiene (la arquitectura lo pide así).
+#
+#   planner (Nav2, /nav/cmd_vel_planner)       ->  10  navegar a una meta
+#   look    (look_controller, /nav/cmd_vel_look) ->  20  girar para mirar a una persona; gana
+#                                                       cuando el robot está detenido conversando.
+#                                                       (Ese nodo todavía no existe: la entrada
+#                                                       queda lista con el nombre del contrato.)
+#   teleop  (teclado, /cmd_vel_teleop)         -> 100  solo para probar y mapear: si tocas una
+#                                                       tecla le quitas el control a Nav2.
+#
+# Salida: /cmd_vel (remapeada en navigation.launch.py). En la arquitectura la salida del mux es
+# /nav/cmd_vel_mux y el único que publica /cmd_vel es safety_filter_node; Martha todavía no tiene
+# ese filtro (andesrobot_safety), así que mientras tanto el mux publica directo en /cmd_vel.
+twist_mux:
+  ros__parameters:
+    topics:
+      planner:
+        topic   : /nav/cmd_vel_planner
+        timeout : 0.5
+        priority: 10
+      look:
+        topic   : /nav/cmd_vel_look
+        timeout : 0.5
+        priority: 20
+      teleop:
+        topic   : /cmd_vel_teleop
+        timeout : 0.5
+        priority: 100
