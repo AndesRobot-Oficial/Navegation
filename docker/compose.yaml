@@ -3,8 +3,13 @@
 # (lib.sh decide cuáles según el PC y el modo).
 # ${VAR:-valor} = usa la variable de tu terminal (las exporta lib.sh) o "valor" si no existe.
 
-# Nombre del proyecto (se usa para nombrar redes/volúmenes). Distinto de "milo" para que los dos
-# workspaces puedan estar levantados en el mismo PC sin pisarse.
+# Nombre del proyecto (se usa para nombrar redes/volúmenes). Distinto de "martha_estructura" (el
+# contenedor del repo de Estructura) y de "milo" para que los workspaces puedan estar levantados en
+# el mismo PC sin pisarse: en el laptop de Martha corren a la vez el de Estructura y este.
+#
+# Este archivo es el ÚNICO de docker/ que cambia entre los repos de Navegación y de Estructura.
+# Los demás (Dockerfile, lib.sh, martha.repos, compose.*.yaml, udev/) son copias exactas: si
+# cambias uno, cópialo al otro repo, porque los dos construyen la misma imagen martha:humble.
 name: martha
 services:
   # Un solo servicio llamado "ros": es el que usan los scripts con "docker compose exec ros ...".

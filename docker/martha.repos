@@ -17,3 +17,16 @@ repositories:
     type: git
     url: https://github.com/Slamtec/sllidar_ros2.git
     version: 34300099fadfc772965962dec837bf436706188f
+  # micro-ROS Agent: el "traductor" entre el ESP32 y ROS 2. El ESP32 corre micro-ROS (un ROS 2
+  # chiquito para microcontroladores) y habla por USB-serie con este agent, que corre en el laptop
+  # y publica/suscribe en ROS 2 en su nombre (/base/imu, estado de las ruedas, /cmd_vel...).
+  # Rama humble al 04-09-2026. Al compilar descarga solo el Micro-XRCE-DDS-Agent de eProsima.
+  micro-ROS-Agent:
+    type: git
+    url: https://github.com/micro-ROS/micro-ROS-Agent.git
+    version: c93ee764e0d2ef4907aeb29233c68cb5f4b56976
+  # Mensajes propios de micro-ROS que el agent necesita para compilar. Rama humble al 08-09-2026.
+  micro_ros_msgs:
+    type: git
+    url: https://github.com/micro-ROS/micro_ros_msgs.git
+    version: c9062eb3860d16c1bff1423923de3b0956fd4734
