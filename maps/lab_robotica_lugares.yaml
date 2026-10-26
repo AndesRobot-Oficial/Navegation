@@ -1,0 +1,4 @@
+# Waypoints del mapa real lab_robotica (frame map). Por ahora solo el punto donde empezó el mapeo,
+# que es el origen del mapa. Los demás se anotan llevando a Martha al lugar y leyendo su pose con
+#   ros2 run tf2_ros tf2_echo map base_footprint
+inicio: {x: 0.0, y: 0.0, yaw: 0.0}

@@ -26,6 +26,7 @@
   <exec_depend>dwb_core</exec_depend>
   <exec_depend>laser_filters</exec_depend>
   <exec_depend>twist_mux</exec_depend>
+  <exec_depend>sllidar_ros2</exec_depend>
   <exec_depend>andesrobot_gazebo</exec_depend>
   <exec_depend>rviz2</exec_depend>
   <exec_depend>python3-yaml</exec_depend>
