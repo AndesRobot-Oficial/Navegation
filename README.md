@@ -99,6 +99,45 @@ cd ~/martha_ws
 > **fuera** de `ros2_ws/` para no romper el `install/` del contenedor:
 > `colcon build --symlink-install --build-base /tmp/martha_build --install-base /tmp/martha_install`
 
+### Solo en el laptop de Martha: nombres fijos para el ESP32 y el lidar
+
+El ESP32 y el RPLIDAR se conectan por USB y los dos usan el mismo chip (CP2102), así que Linux los
+llama `ttyUSB0`/`ttyUSB1` en cualquier orden. Las reglas udev de `docker/udev/99-martha.rules`
+les dan nombres fijos: **`/dev/martha_esp32`** y **`/dev/martha_lidar`**. Se instalan una vez en
+el laptop (no en el contenedor):
+
+1. Conecta **solo el ESP32** y anota su número de serie:
+   ```bash
+   udevadm info -a -n /dev/ttyUSB0 | grep -m1 'ATTRS{serial}'
+   ```
+   Repite con **solo el RPLIDAR** conectado.
+2. Abre `docker/udev/99-martha.rules` y pon esos números en lugar de `PONER_SERIAL_ESP32` y
+   `PONER_SERIAL_LIDAR`. Si salen **iguales**, usa el "plan B" que explica el mismo archivo.
+3. Instala y recarga:
+   ```bash
+   sudo cp docker/udev/99-martha.rules /etc/udev/rules.d/
+   ```
+   ```bash
+   sudo udevadm control --reload-rules && sudo udevadm trigger
+   ```
+4. Comprueba que aparezcan `ls -l /dev/martha_*`.
+
+En modo robot, `docker/compose.robot.yaml` comparte `/dev` con el contenedor, y el ESP32 se
+conecta a ROS 2 con el **micro-ROS agent** que ya trae la imagen:
+
+```bash
+ros2 run micro_ros_agent micro_ros_agent serial --dev /dev/martha_esp32 -b 115200
+```
+
+El **LiDAR real** (RPLIDAR A2M8) se lanza así y publica `/nav/scan` (frame `laser`, ~10 Hz):
+
+```bash
+ros2 launch andesrobot_navigation lidar.launch.py
+```
+
+Sin las reglas udev, dale el puerto a mano: `lidar_port:=/dev/ttyUSB0`. Compruébalo con
+`ros2 topic hz /nav/scan`.
+
 ---
 
 ## 2. Simulación
@@ -235,17 +274,24 @@ movimiento **Omni**, así que Martha puede ir de lado.
 martha_ws/
 ├── sim.sh                     todo se lanza desde aquí
 ├── docker/                    imagen de Docker (la de milo_ws + lo que necesita Martha)
+│   ├── martha.repos           drivers que se compilan en la imagen (RPLIDAR, micro-ROS agent)
+│   ├── compose.robot.yaml     extra para el laptop de Martha: acceso a los USB-serie
+│   └── udev/                  reglas para /dev/martha_esp32 y /dev/martha_lidar (en el host)
 ├── docs/navegacion/           informe de los lugares con nombre (y sus figuras)
 ├── maps/                      mapa de la casa (casa.pgm + casa.yaml) y sus waypoints
-│                              (casa_lugares.yaml); en Docker se ve como /maps
+│                              (casa_lugares.yaml), y los mapas reales hechos con Martha
+│                              (lab_robotica, salon_real); en Docker se ve como /maps
 └── ros2_ws/src/
-    ├── andesrobot_description   URDF de Martha (chasis, ruedas mecanum, lidar, IMU, torre)
+    ├── andesrobot_description   URDF de Martha (COPIA: el original está en el repo de Estructura)
     ├── andesrobot_gazebo        casa RoboCup@Home (y su generador, tools/) y spawn de Martha
     └── andesrobot_navigation    Nav2 (modelo Omni), twist_mux, filtro de la torre y waypoints
 ```
 
-**El URDF** (`andesrobot_description/urdf/martha.urdf.xacro`) viene de `martha_nav` (la tesis de
-navegación) y representa a la Martha real. Argumentos:
+**El URDF** (`andesrobot_description/urdf/martha.urdf.xacro`) representa a la Martha real. Es de
+Estructura: el original vive en el repo
+[Structure-Embedded-Systems_MATHA](https://github.com/AndesRobot-Oficial/Structure-Embedded-Systems_MATHA)
+y aquí hay una **copia** para la simulación. No la edites aquí: cambia el original y copia la
+carpeta completa (ver `andesrobot_description/docs/ROBOT.md`). Argumentos:
 
 | Argumento | Valores | Para qué |
 |---|---|---|
@@ -293,10 +339,10 @@ Omni) sobre el mapa de la casa y waypoints con nombre.
 
 | Equipo | Qué | Paquete |
 |---|---|---|
-| Estructura | Base real: firmware del ESP32 (cinemática mecanum) y puente serie → `/cmd_vel` / `/base/odom` | `firmware/`, `andesrobot_base` |
+| Estructura | Base real: firmware micro-ROS del ESP32 (`/base/imu` y estado de las ruedas) y ros2_control en el laptop → `/base/wheel_odom` (el agent ya está en la imagen) | `firmware/`, `andesrobot_base` |
 | Estructura | EKF ruedas + IMU (`robot_localization`) → `/base/odom` | `andesrobot_base` |
 | Estructura | Simulación mecanum completa: puente `/cmd_vel` → `mecanum_drive_controller` → `/base/odom` | `andesrobot_base` |
-| Navegación | Driver del A2M8 real → `/nav/scan`; SLAM y un mapa propio de Martha (el de `maps/` lo hizo Milo) | `andesrobot_slam` |
+| Navegación | SLAM (modo mapeo) en martha_ws. El driver del A2M8 real ya está (`lidar.launch.py`) y hay dos mapas reales del 2026-10-21 en `maps/` | `andesrobot_slam` |
 | Navegación | `/nav/pose` y el servicio `/nav/set_initial_pose` del contrato (hoy AMCL parte en la pose del launch) | `andesrobot_navigation` |
 | Navegación | Mapa y `base_zone` propios de Martha (la arquitectura los pide por robot; hoy `base` es la de Milo) | `maps/` |
 | Navegación | Filtro de seguridad que también mire a los lados; el mux pasa a publicar `/nav/cmd_vel_mux` | `andesrobot_safety` |

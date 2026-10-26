@@ -1,0 +1,21 @@
+# Modo ROBOT: se suma encima de compose.yaml solo cuando lib.sh corre con mode=robot (en el laptop
+# que va sobre Martha). Le da al contenedor acceso a los USB-serie del ESP32 y del RPLIDAR.
+#
+# Los nombres fijos /dev/martha_esp32 y /dev/martha_lidar los crea el HOST con las reglas udev de
+# docker/udev/99-martha.rules (instalarlas una vez, ver README). Dentro del contenedor se ven
+# igual porque compartimos /dev.
+services:
+  ros:
+    volumes:
+      # Todo /dev del host, no dispositivos sueltos: con "devices:" el contenedor no arranca si un
+      # USB está desconectado, y si lo desconectas y vuelves a conectar ya no lo ve. Montando /dev
+      # el archivo aparece y desaparece en vivo, igual que en el host.
+      - /dev:/dev
+    # Montar /dev no basta: Docker además filtra qué dispositivos se pueden abrir. Cada regla deja
+    # pasar un tipo:  c = dispositivo de caracteres, <número mayor>:* = todos los de ese tipo,
+    # rmw = leer, escribir y crear.
+    #   188 = ttyUSB*  (adaptadores USB-serie como el CP2102 del ESP32 y del RPLIDAR)
+    #   166 = ttyACM*  (placas con USB nativo, por si el ESP32 se cambia por un S3)
+    device_cgroup_rules:
+      - "c 188:* rmw"
+      - "c 166:* rmw"

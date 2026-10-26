@@ -1,0 +1,41 @@
+# Reglas udev de Martha: nombres FIJOS para los dos USB-serie de la base.
+#   /dev/martha_esp32   ESP32 (micro-ROS)   -> lo abre el micro-ROS agent
+#   /dev/martha_lidar   RPLIDAR A2M8        -> lo abre sllidar_ros2
+#
+# Por qué hacen falta: Linux numera los USB-serie en el orden en que aparecen (ttyUSB0, ttyUSB1),
+# y ese orden cambia al reconectar o reiniciar. Además el ESP32 y el adaptador del RPLIDAR usan el
+# MISMO chip (CP2102, idVendor 10c4 / idProduct ea60), así que la regla típica del RPLIDAR
+# ("10c4:ea60 -> /dev/rplidar") también agarraría al ESP32. Hay que distinguirlos por el número
+# de serie que cada adaptador trae grabado.
+#
+# Se instalan en el HOST (el laptop de Martha), no en el contenedor:
+#   1. Conectar SOLO el ESP32 y leer su número de serie:
+#        udevadm info -a -n /dev/ttyUSB0 | grep -m1 'ATTRS{serial}'
+#      Repetir con SOLO el RPLIDAR conectado.
+#   2. Poner esos números abajo, en lugar de PONER_SERIAL_ESP32 y PONER_SERIAL_LIDAR.
+#   3. sudo cp docker/udev/99-martha.rules /etc/udev/rules.d/
+#      sudo udevadm control --reload-rules && sudo udevadm trigger
+#   4. Comprobar:  ls -l /dev/martha_*
+#
+# Cada línea: condiciones con "==" (todas deben cumplirse) y acciones con "=" o "+=".
+#   SUBSYSTEM=="tty"            solo puertos serie
+#   ATTRS{...}                  atributos del USB (busca hacia arriba en el árbol del dispositivo)
+#   SYMLINK+="martha_esp32"     crea /dev/martha_esp32 apuntando al ttyUSB que toque
+#   MODE="0666"                 cualquier usuario lo puede abrir (también el usuario del contenedor,
+#                               aunque su grupo dialout tenga otro número que el del host)
+#   ID_MM_DEVICE_IGNORE         que ModemManager de Ubuntu no lo "pruebe" como si fuera un módem:
+#                               le manda comandos AT al conectarlo y puede reiniciar el ESP32 o
+#                               ensuciar los primeros mensajes.
+
+SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", ATTRS{serial}=="PONER_SERIAL_ESP32", SYMLINK+="martha_esp32", MODE="0666", ENV{ID_MM_DEVICE_IGNORE}="1"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", ATTRS{serial}=="PONER_SERIAL_LIDAR", SYMLINK+="martha_lidar", MODE="0666", ENV{ID_MM_DEVICE_IGNORE}="1"
+
+# Plan B: si los dos adaptadores traen el MISMO número de serie (pasa con CP2102 baratos, que
+# vienen todos con "0001"), no hay cómo distinguirlos por el chip y toca hacerlo por el PUERTO USB
+# físico del laptop: cada cable siempre en el mismo puerto. Para eso borrar las dos líneas de
+# arriba, quitar el "#" de estas dos y poner el camino del puerto de cada uno, que se lee con
+#   udevadm info -a -n /dev/ttyUSB0 | grep -m1 'KERNELS=="[0-9]'      (algo como "1-2:1.0")
+# (Estas líneas no usan idVendor: udev exige que todos los ATTRS/KERNELS de una regla salgan del
+#  mismo "padre" del dispositivo, y idVendor vive en un padre distinto al de "1-2:1.0".)
+# SUBSYSTEM=="tty", KERNELS=="PONER_PUERTO_ESP32", SYMLINK+="martha_esp32", MODE="0666", ENV{ID_MM_DEVICE_IGNORE}="1"
+# SUBSYSTEM=="tty", KERNELS=="PONER_PUERTO_LIDAR", SYMLINK+="martha_lidar", MODE="0666", ENV{ID_MM_DEVICE_IGNORE}="1"

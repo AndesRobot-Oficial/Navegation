@@ -81,7 +81,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3-vcstool
 # Lo que Martha necesita y milo_ws no trae (capa aparte: lo de arriba queda igual a Milo).
 #   robot-localization        ekf_node = odom_ekf_node del contrato (ruedas + IMU -> /base/odom)
 #   mecanum-drive-controller  cinemática mecanum de ros2_control (ruedas con rodillos en Gazebo)
-#   python3-serial            hablar con el ESP32 de la base por el puerto serie
+#   python3-serial            abrir el puerto serie del ESP32 a mano (pruebas y diagnóstico; en
+#                             operación normal lo abre el micro-ROS agent, ver martha.repos)
 # El entrenamiento del PPO (torch, stable-baselines3, gymnasium) NO va aquí: pesa varios GB y el
 # robot no lo necesita, porque la política exportada (.npz) corre solo con numpy.
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -90,17 +91,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       python3-serial \
     && rm -rf /var/lib/apt/lists/*
 
-# Drivers externos (por ahora el del RPLIDAR de Slamtec, que también maneja el A2M8 de Martha),
-# listados con su versión exacta en martha.repos: así todos los PCs compilan exactamente lo
+# Drivers externos: el del RPLIDAR de Slamtec (también maneja el A2M8 de Martha) y el micro-ROS
+# agent (puente entre el ESP32 y ROS 2), listados con su versión exacta en martha.repos: así todos los PCs compilan exactamente lo
 # mismo, y las versiones se cambian en un solo archivo.
 # Pasos: copiar martha.repos a la imagen, descargar los repos en /opt/martha_drivers/src, cargar
-# ROS ("." = source en sh), compilarlos en modo Release (optimizado) y borrar los temporales.
+# ROS ("." = source en sh), compilarlos en modo Release (optimizado) y sin sus pruebas
+# (BUILD_TESTING=OFF: no las corremos y piden paquetes de lint que la imagen no trae), y borrar
+# los temporales.
 # Queda instalado en /opt/martha_drivers/install (entrypoint.sh y .bashrc lo cargan).
 COPY martha.repos /opt/martha_drivers/martha.repos
 RUN mkdir -p /opt/martha_drivers/src && cd /opt/martha_drivers \
  && vcs import src < martha.repos \
  && . /opt/ros/humble/setup.sh \
- && colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release \
+ && colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF \
  && rm -rf build log
 
 # Usuario con tu mismo UID/GID (los archivos de build no quedan de root en tu PC)
