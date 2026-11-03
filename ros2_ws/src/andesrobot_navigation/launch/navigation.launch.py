@@ -158,7 +158,7 @@ def generate_launch_description():
         output='screen',
         parameters=[PathJoinSubstitution([pkg, 'config', 'twist_mux.yaml']),
                     {'use_sim_time': use_sim_time}],
-        # Sin filtro de seguridad todavía: el mux publica directo en /cmd_vel (twist_mux.yaml).
+        # El filtro de seguridad aún no está conectado (NAV-10): publica en /cmd_vel.
         remappings=[('cmd_vel_out', '/cmd_vel')],
     )
 

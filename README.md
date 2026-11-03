@@ -241,8 +241,9 @@ look_controller ─ /nav/cmd_vel_look ─┼─► twist_mux ─► /cmd_vel ─
 teclado ─────────── /cmd_vel_teleop ─┘   (el teclado tiene prioridad)
 ```
 
-Es la cadena de la arquitectura. Martha todavía no tiene filtro de seguridad: cuando exista, el
-mux publicará en `/nav/cmd_vel_mux` y el filtro en `/cmd_vel`. El lidar pasa antes por un filtro
+Es la cadena de la arquitectura. El filtro de seguridad (`andesrobot_safety`) ya existe, pero
+todavía no está conectado aquí: cuando se conecte (tarea NAV-10), el mux publicará en
+`/nav/cmd_vel_mux` y el filtro en `/cmd_vel`. El lidar pasa antes por un filtro
 que borra los postes de la torre (`/nav/scan` → `/nav/scan_filtered`); Nav2 usa el modelo de
 movimiento **Omni**, así que Martha puede ir de lado.
 </details>
@@ -285,7 +286,8 @@ martha_ws/
 └── ros2_ws/src/
     ├── andesrobot_description   URDF de Martha (COPIA: el original está en el repo de Estructura)
     ├── andesrobot_gazebo        casa RoboCup@Home (y su generador, tools/) y spawn de Martha
-    └── andesrobot_navigation    Nav2 (modelo Omni), twist_mux, filtro de la torre y waypoints
+    ├── andesrobot_navigation    Nav2 (modelo Omni), twist_mux, filtro de la torre y waypoints
+    └── andesrobot_safety        safety_filter_node: frena en la dirección en que se mueve
 ```
 
 **El URDF** (`andesrobot_description/urdf/martha.urdf.xacro`) representa a la Martha real. Es de
@@ -323,6 +325,7 @@ en el robot real, los drivers. Nadie más cambia su código al pasar de uno a ot
 | `/base/odom` + TF `odom → base_footprint` | `nav_msgs/Odometry` | Estructura | `planar_move` | EKF (ruedas + IMU) |
 | `/base/imu` | `sensor_msgs/Imu` | Estructura | plugin IMU | IMU real |
 | `/nav/scan` | `sensor_msgs/LaserScan`, frame `laser` | Navegación | plugin ray | `sllidar_ros2` (A2M8) |
+| `/nav/safety_state` | `std_msgs/String` (`ok`, `slow`, `stop`) | Navegación (filtro de seguridad) | `safety_filter_node` | `safety_filter_node` |
 
 Frames: `base_footprint` (suelo, raíz) → `base_link` → `laser`, `imu_link`, ruedas y torre.
 `ROS_DOMAIN_ID` por defecto **12** (Martha); cada persona que simule en la misma red puede usar el
@@ -334,7 +337,8 @@ suyo: `ROS_DOMAIN_ID=31 ./sim.sh`.
 
 **Funciona:** Docker, Martha en la casa RoboCup@Home con `planar_move`, teleop holonómico, lidar e
 IMU simulados con los nombres del contrato, pruebas del URDF, navegación autónoma con Nav2 (modelo
-Omni) sobre el mapa de la casa y waypoints con nombre.
+Omni) sobre el mapa de la casa y waypoints con nombre, filtro de seguridad a 360° probado en
+Gazebo contra cajas (`andesrobot_safety/scripts/prueba_caja.py`).
 
 **Lo que viene** (en este orden aproximado):
 
@@ -346,7 +350,7 @@ Omni) sobre el mapa de la casa y waypoints con nombre.
 | Navegación | SLAM (modo mapeo) en martha_ws. El driver del A2M8 real ya está (`lidar.launch.py`) y hay dos mapas reales del 2026-10-21 en `maps/` | `andesrobot_slam` |
 | Navegación | `/nav/pose` y el servicio `/nav/set_initial_pose` del contrato (hoy AMCL parte en la pose del launch) | `andesrobot_navigation` |
 | Navegación | Mapa y `base_zone` propios de Martha (la arquitectura los pide por robot; hoy `base` es la de Milo) | `maps/` |
-| Navegación | Filtro de seguridad que también mire a los lados; el mux pasa a publicar `/nav/cmd_vel_mux` | `andesrobot_safety` |
+| Navegación | Conectar el filtro de seguridad: el mux pasa a publicar `/nav/cmd_vel_mux` | `andesrobot_navigation` |
 | Ambos | `robot.sh` para el portátil de Martha | raíz |
 
 ---
