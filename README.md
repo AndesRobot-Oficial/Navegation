@@ -224,13 +224,18 @@ la misma que pedirá `task_orchestrator_node`.
 
 | Terminal | Comando | Qué hace |
 |:-:|---|---|
-| 1 | `./sim.sh nav` | Gazebo + AMCL + Nav2 + RViz con el mapa `casa` |
+| 1 | `./sim.sh nav` | Gazebo + AMCL + Nav2 + el PPO de la tesis + RViz con el mapa `casa` |
 | 2 | `./sim.sh ir --lista` | ver tus lugares |
 | 2 | `./sim.sh ir sofa` | ir al sofá |
 | 2 | `./sim.sh ir sofa base dining_table` | varios seguidos |
 
 También sirve **2D Goal Pose** en RViz (clic en el mapa y arrastrar para la dirección).
 Si tocas el teleop le quitas el control a Nav2 mientras aprietes teclas.
+
+**Quién decide las velocidades:** por defecto el **PPO** de la tesis de Nicolás
+([`policies/`](policies/README.md)). Nav2 calcula la ruta y la política la sigue. Al llegar a 0.3 m
+de la meta, un ajuste simple deja a Martha en la pose y orientación del lugar. Para comparar con el
+controlador clásico de Nav2: `./sim.sh nav casa dwb`.
 
 <details>
 <summary><b>Cómo fluyen las velocidades</b> (clic para ver)</summary>
@@ -264,7 +269,7 @@ movimiento **Omni**, así que Martha puede ir de lado.
 | `./sim.sh stop` | apagar el contenedor |
 | `./sim.sh cpu` / `software` / `sin-gazebo` | sin NVIDIA / render por CPU / sin ventana de Gazebo |
 | `./sim.sh gpu` | con qué tarjeta gráfica está dibujando |
-| `./sim.sh nav [mapa]` | navegación autónoma con un mapa de `maps/` (por defecto `casa`) |
+| `./sim.sh nav [mapa] [ppo\|dwb]` | navegación autónoma con un mapa de `maps/` (por defecto `casa`, con el PPO) |
 | `./sim.sh ir <lugar> [...]` | mandar a Martha a uno o varios waypoints (`--lista` para verlos) |
 
 ---
@@ -282,12 +287,13 @@ martha_ws/
 ├── maps/                      mapa de la casa (casa.pgm + casa.yaml) y sus waypoints
 │                              (casa_lugares.yaml), y los mapas reales hechos con Martha
 │                              (lab_robotica, salon_real); en Docker se ve como /maps
-├── policies/                  política PPO de la tesis (martha_holo.npz), aún sin integrar
+├── policies/                  política PPO de la tesis (martha_holo.npz); en Docker es /policies
 └── ros2_ws/src/
     ├── andesrobot_description   URDF de Martha (COPIA: el original está en el repo de Estructura)
     ├── andesrobot_gazebo        casa RoboCup@Home (y su generador, tools/) y spawn de Martha
-    ├── andesrobot_navigation    Nav2 (modelo Omni), twist_mux, filtro de la torre y waypoints
-    └── andesrobot_safety        safety_filter_node: frena en la dirección en que se mueve
+    ├── andesrobot_navigation    Nav2 + PPO (ppo_controller), twist_mux, filtro de la torre y waypoints
+    ├── andesrobot_safety        safety_filter_node: frena en la dirección en que se mueve
+    └── martha_nav               copia de la lógica del PPO de la tesis (no se edita aquí)
 ```
 
 **El URDF** (`andesrobot_description/urdf/martha.urdf.xacro`) representa a la Martha real. Es de
@@ -336,8 +342,8 @@ suyo: `ROS_DOMAIN_ID=31 ./sim.sh`.
 ## 6. Estado y lo que falta
 
 **Funciona:** Docker, Martha en la casa RoboCup@Home con `planar_move`, teleop holonómico, lidar e
-IMU simulados con los nombres del contrato, pruebas del URDF, navegación autónoma con Nav2 (modelo
-Omni) sobre el mapa de la casa y waypoints con nombre, filtro de seguridad a 360° probado en
+IMU simulados con los nombres del contrato, pruebas del URDF, navegación autónoma con Nav2 y el PPO
+de la tesis sobre el mapa de la casa, con waypoints con nombre, filtro de seguridad a 360° probado en
 Gazebo contra cajas (`andesrobot_safety/scripts/prueba_caja.py`).
 
 **Lo que viene** (en este orden aproximado):

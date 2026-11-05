@@ -21,17 +21,21 @@ con la torre de aluminio. Es un **planificador local**: sigue una ruta global y 
 | Salida (3 valores en [-1, 1]) | `vx` × 0.35 m/s (× 0.15 hacia atrás) · `vy` × 0.25 m/s · `w` × 0.8 rad/s |
 | *Carrot* | punto de la ruta global a 1.5 m por delante del robot, saltando los que caen a < 0.4 m de un obstáculo |
 
-## Cómo integrarla
+## Cómo está integrada
 
-No hace falta reimplementar nada: en `martha_nav` ya está el código, sin ROS y probado.
+La corre `andesrobot_navigation/ppo_controller.py`, el controlador local de `./sim.sh nav`. Reutiliza
+el código de abajo, copiado sin cambios en el paquete `ros2_ws/src/martha_nav`. La carpeta se monta
+en el contenedor como `/policies`.
+
+En `martha_nav` ya está el código, sin ROS y probado:
 
 | Archivo de `martha_nav` | Qué hace |
 |---|---|
 | `martha_nav/ros/numpy_policy.py` | carga el `.npz` y calcula la acción |
 | `martha_nav/ros/policy_core.py` | un paso de control: ruta + pose + scan → velocidad, con freno por lado |
 | `martha_nav/sim2d/observation.py` | arma la observación y convierte la acción en velocidad |
-| `martha_nav/ros/ppo_local_planner.py` | nodo ROS 2 que lo une todo (parámetro `checkpoint`) |
 
-El nodo de `martha_nav` usa nombres sin prefijo (`/scan`, `/odom`, `/plan` → `/cmd_vel`). Aquí hay
-que remapearlos al contrato de la arquitectura: leer `/nav/scan`, `/base/odom` y la ruta global, y
-publicar en `/nav/cmd_vel_planner` (no en `/cmd_vel`, que es solo del filtro de seguridad).
+El nodo original de la tesis (`ppo_local_planner.py`) usa nombres sin prefijo (`/scan`, `/odom`,
+`/plan` → `/cmd_vel`). `ppo_controller` usa los del contrato de la arquitectura: lee `/nav/scan`,
+`/base/odom` y la ruta global de Nav2, y publica en `/nav/cmd_vel_planner` (no en `/cmd_vel`, que es
+solo del filtro de seguridad).

@@ -1,6 +1,6 @@
 """Navegación AUTÓNOMA en simulación: Gazebo + Martha + navegación (Nav2) + RViz.
 
-Lo corre:       ./sim.sh nav
+Lo corre:       ./sim.sh nav            (controller:=ppo; ./sim.sh nav casa dwb para el clásico)
 Mandar a Martha: ./sim.sh ir sofa          (o "2D Goal Pose" en RViz)
 Teclado encima de Nav2 (le quita el control mientras tocas teclas):  ./sim.sh teleop
 
@@ -43,6 +43,7 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([pkg_nav, 'launch', 'navigation.launch.py'])),
         launch_arguments={'map': LaunchConfiguration('map'),
+                          'controller': LaunchConfiguration('controller'),
                           'ubicaciones': LaunchConfiguration('ubicaciones'),
                           'use_sim_time': 'true',
                           **pose}.items(),
@@ -59,6 +60,8 @@ def generate_launch_description():
 
     return LaunchDescription([
         DeclareLaunchArgument('map', default_value='/maps/casa.yaml'),
+        # ppo = la política de la tesis; dwb = el controlador clásico de Nav2.
+        DeclareLaunchArgument('controller', default_value='ppo', choices=['ppo', 'dwb']),
         DeclareLaunchArgument('ubicaciones', default_value='/maps/casa_lugares.yaml'),
         # Dónde aparece Martha en la casa (y dónde parte AMCL): afuera de la puerta del living,
         # mirando hacia adentro. Los mismos números que sim.launch.py.

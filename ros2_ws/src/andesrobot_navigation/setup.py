@@ -28,6 +28,8 @@ setup(
     entry_points={'console_scripts': [
         # ros2 run andesrobot_navigation ir_a sofa
         'ir_a = andesrobot_navigation.ir_a:main',
+        # el PPO de la tesis como controlador local (atiende /follow_path)
+        'ppo_controller = andesrobot_navigation.ppo_controller:main',
         # publica los waypoints como marcadores en RViz
         'marcadores = andesrobot_navigation.marcadores:main',
     ]},

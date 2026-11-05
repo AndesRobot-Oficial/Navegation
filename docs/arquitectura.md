@@ -204,11 +204,12 @@ Estado al 2026-10-24. La página dice cómo debe quedar el robot; aquí, lo que 
 
 **Navegación (`andesrobot_navigation`, Nav2)**
 
-- `path_planner_node` de la página es Nav2 completo (planner, controller DWB, behaviors,
-  bt_navigator, velocity_smoother). Atiende `/nav/navigate_to_pose` y publica
-  `/nav/cmd_vel_planner`. La localización es AMCL con el modelo Omni sobre `/nav/map`.
-- **Sin filtro de seguridad todavía**: el mux (`twist_mux`) publica directo en `/cmd_vel`. Falta
-  `safety_filter_node` (que en MARTHA tiene que mirar también a los lados) y `/nav/safety_state`.
+- `path_planner_node` de la página es Nav2 (planner NavFn, behaviors, bt_navigator) con el PPO de
+  la tesis como controlador local (`ppo_controller`, que atiende `/follow_path`). La página dice
+  "DWB o MPPI"; DWB sigue disponible con `controller:=dwb`. Atiende `/nav/navigate_to_pose` y
+  publica `/nav/cmd_vel_planner`. La localización es AMCL con el modelo Omni sobre `/nav/map`.
+- **Filtro de seguridad sin conectar**: `safety_filter_node` (`andesrobot_safety`) ya existe y mira
+  también a los lados, pero el mux (`twist_mux`) todavía publica directo en `/cmd_vel` (NAV-10).
 - **Teleop en el mux**: `/cmd_vel_teleop` entra al mux con la prioridad más alta (100, sobre mirar
   20 y navegar 10). Sirve para probar y mapear; en el launch de competencia no se lanza.
 - **Filtro de la torre**: `filtro_torre.yaml` (laser_filters) borra los postes de la torre del scan
