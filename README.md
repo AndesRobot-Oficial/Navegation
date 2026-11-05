@@ -281,6 +281,7 @@ martha_ws/
 ├── maps/                      mapa de la casa (casa.pgm + casa.yaml) y sus waypoints
 │                              (casa_lugares.yaml), y los mapas reales hechos con Martha
 │                              (lab_robotica, salon_real); en Docker se ve como /maps
+├── policies/                  política PPO de la tesis (martha_holo.npz), aún sin integrar
 └── ros2_ws/src/
     ├── andesrobot_description   URDF de Martha (COPIA: el original está en el repo de Estructura)
     ├── andesrobot_gazebo        casa RoboCup@Home (y su generador, tools/) y spawn de Martha
