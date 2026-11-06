@@ -28,6 +28,14 @@ setup(
     entry_points={'console_scripts': [
         # ros2 run andesrobot_navigation ir_a sofa
         'ir_a = andesrobot_navigation.ir_a:main',
+        # el PPO de la tesis como controlador local (atiende /follow_path)
+        'ppo_controller = andesrobot_navigation.ppo_controller:main',
+        # gira en el lugar, despacio, mientras Visión busca (acción /nav/search_rotate)
+        'girar_buscando = andesrobot_navigation.girar_buscando:main',
+        # PRUEBA: hace de orquestador para buscar un objeto sala por sala
+        'buscar_objeto = andesrobot_navigation.buscar_objeto:main',
+        # PRUEBA: hace de object_detector_node de Visión en Gazebo
+        'vision_simulada = andesrobot_navigation.vision_simulada:main',
         # publica los waypoints como marcadores en RViz
         'marcadores = andesrobot_navigation.marcadores:main',
     ]},

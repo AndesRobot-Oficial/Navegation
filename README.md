@@ -171,7 +171,8 @@ amarillas, `/base/odom`).
 El mapa de la casa ya está en `maps/casa.yaml` (lo hizo Milo; en la simulación coincide con el
 mundo de Gazebo). Martha parte **afuera de la puerta del living**, mirando hacia adentro.
 Informe completo, con la figura de todos los lugares:
-[docs/navegacion/README.md](docs/navegacion/README.md).
+[docs/navegacion/README.md](docs/navegacion/README.md). **Guía paso a paso del PPO, el filtro de
+seguridad y la búsqueda de objetos:** [docs/navegacion/GUIA.md](docs/navegacion/GUIA.md).
 
 #### Paso 1 · Anotar dónde queda cada cosa
 
@@ -224,13 +225,18 @@ la misma que pedirá `task_orchestrator_node`.
 
 | Terminal | Comando | Qué hace |
 |:-:|---|---|
-| 1 | `./sim.sh nav` | Gazebo + AMCL + Nav2 + RViz con el mapa `casa` |
+| 1 | `./sim.sh nav` | Gazebo + AMCL + Nav2 + el PPO de la tesis + RViz con el mapa `casa` |
 | 2 | `./sim.sh ir --lista` | ver tus lugares |
 | 2 | `./sim.sh ir sofa` | ir al sofá |
 | 2 | `./sim.sh ir sofa base dining_table` | varios seguidos |
 
 También sirve **2D Goal Pose** en RViz (clic en el mapa y arrastrar para la dirección).
 Si tocas el teleop le quitas el control a Nav2 mientras aprietes teclas.
+
+**Quién decide las velocidades:** por defecto el **PPO** de la tesis de Nicolás
+([`policies/`](policies/README.md)). Nav2 calcula la ruta y la política la sigue. Al llegar a 0.3 m
+de la meta, un ajuste simple deja a Martha en la pose y orientación del lugar. Para comparar con el
+controlador clásico de Nav2: `./sim.sh nav casa dwb`.
 
 <details>
 <summary><b>Cómo fluyen las velocidades</b> (clic para ver)</summary>
@@ -241,11 +247,36 @@ look_controller ─ /nav/cmd_vel_look ─┼─► twist_mux ─► /cmd_vel ─
 teclado ─────────── /cmd_vel_teleop ─┘   (el teclado tiene prioridad)
 ```
 
-Es la cadena de la arquitectura. Martha todavía no tiene filtro de seguridad: cuando exista, el
-mux publicará en `/nav/cmd_vel_mux` y el filtro en `/cmd_vel`. El lidar pasa antes por un filtro
+Es la cadena de la arquitectura. El filtro de seguridad (`andesrobot_safety`) ya existe, pero
+todavía no está conectado aquí: cuando se conecte (tarea NAV-10), el mux publicará en
+`/nav/cmd_vel_mux` y el filtro en `/cmd_vel`. El lidar pasa antes por un filtro
 que borra los postes de la torre (`/nav/scan` → `/nav/scan_filtered`); Nav2 usa el modelo de
 movimiento **Omni**, así que Martha puede ir de lado.
 </details>
+
+#### Prueba · Buscar un objeto con Visión
+
+El flujo acordado con Visión (de prueba, mientras no estén el orquestador ni el detector real):
+el orquestador le dice a Navegación a qué sala ir y a Visión qué objeto buscar. Navegación va a la
+sala más probable (`maps/casa_objetos.yaml`) y **gira 360° despacio** (`/nav/search_rotate`,
+0.3 rad/s) mientras Visión responde si lo vio (`/vision/object_detected`, `true`/`false`). Si lo
+vio, sigue girando hasta que deja de verlo, toma el ángulo del medio como dirección del objeto y
+va al mueble de esa sala que queda en esa dirección; si no, a la sala siguiente. Al terminar,
+lo encuentre o no, **vuelve a casa**: el waypoint `base` (cámbialo con `--casa <lugar>`).
+
+| Terminal | Comando | Qué hace |
+|:-:|---|---|
+| 1 | `./sim.sh nav` | la navegación de siempre (incluye el nodo que gira) |
+| 2 | `./sim.sh buscar sprite` | una visión simulada "pone" la Sprite en `counter` y Martha la busca |
+| 2 | `./sim.sh buscar sprite coffee_table` | la Sprite en el living: primero la busca en la cocina |
+
+La visión simulada solo existe para probar: ve el objeto si queda dentro de un cono de 60°, a menos
+de 4 m y sin un muro del mapa en medio. Con el `object_detector_node` real de Visión se corre solo
+`ros2 run andesrobot_navigation buscar_objeto sprite`. Los nombres de los tópicos de Visión
+(`/vision/object_detected` y `/vision/target_object`) son los de la prueba: falta confirmarlos con
+Visión y agregarlos al contrato. Como Visión solo dice `true`/`false` y no dónde está el objeto,
+Navegación elige el mueble por esa dirección: con muebles juntos puede equivocarse.
+
 
 ---
 
@@ -263,7 +294,8 @@ movimiento **Omni**, así que Martha puede ir de lado.
 | `./sim.sh stop` | apagar el contenedor |
 | `./sim.sh cpu` / `software` / `sin-gazebo` | sin NVIDIA / render por CPU / sin ventana de Gazebo |
 | `./sim.sh gpu` | con qué tarjeta gráfica está dibujando |
-| `./sim.sh nav [mapa]` | navegación autónoma con un mapa de `maps/` (por defecto `casa`) |
+| `./sim.sh buscar <objeto> [mueble]` | prueba de búsqueda con una visión simulada |
+| `./sim.sh nav [mapa] [ppo\|dwb]` | navegación autónoma con un mapa de `maps/` (por defecto `casa`, con el PPO) |
 | `./sim.sh ir <lugar> [...]` | mandar a Martha a uno o varios waypoints (`--lista` para verlos) |
 
 ---
@@ -277,15 +309,17 @@ martha_ws/
 │   ├── martha.repos           drivers que se compilan en la imagen (RPLIDAR, micro-ROS agent)
 │   ├── compose.robot.yaml     extra para el laptop de Martha: acceso a los USB-serie
 │   └── udev/                  reglas para /dev/martha_esp32 y /dev/martha_lidar (en el host)
-├── docs/navegacion/           informe de los lugares con nombre (y sus figuras)
+├── docs/navegacion/           informe de los lugares con nombre y GUIA.md (PPO, filtro, búsqueda)
 ├── maps/                      mapa de la casa (casa.pgm + casa.yaml) y sus waypoints
 │                              (casa_lugares.yaml), y los mapas reales hechos con Martha
 │                              (lab_robotica, salon_real); en Docker se ve como /maps
-├── policies/                  política PPO de la tesis (martha_holo.npz), aún sin integrar
+├── policies/                  política PPO de la tesis (martha_holo.npz); en Docker es /policies
 └── ros2_ws/src/
     ├── andesrobot_description   URDF de Martha (COPIA: el original está en el repo de Estructura)
     ├── andesrobot_gazebo        casa RoboCup@Home (y su generador, tools/) y spawn de Martha
-    └── andesrobot_navigation    Nav2 (modelo Omni), twist_mux, filtro de la torre y waypoints
+    ├── andesrobot_navigation    Nav2 + PPO (ppo_controller), twist_mux, filtro de la torre y waypoints
+    ├── andesrobot_safety        safety_filter_node: frena en la dirección en que se mueve
+    └── martha_nav               copia de la lógica del PPO de la tesis (no se edita aquí)
 ```
 
 **El URDF** (`andesrobot_description/urdf/martha.urdf.xacro`) representa a la Martha real. Es de
@@ -323,6 +357,7 @@ en el robot real, los drivers. Nadie más cambia su código al pasar de uno a ot
 | `/base/odom` + TF `odom → base_footprint` | `nav_msgs/Odometry` | Estructura | `planar_move` | EKF (ruedas + IMU) |
 | `/base/imu` | `sensor_msgs/Imu` | Estructura | plugin IMU | IMU real |
 | `/nav/scan` | `sensor_msgs/LaserScan`, frame `laser` | Navegación | plugin ray | `sllidar_ros2` (A2M8) |
+| `/nav/safety_state` | `std_msgs/String` (`ok`, `slow`, `stop`) | Navegación (filtro de seguridad) | `safety_filter_node` | `safety_filter_node` |
 
 Frames: `base_footprint` (suelo, raíz) → `base_link` → `laser`, `imu_link`, ruedas y torre.
 `ROS_DOMAIN_ID` por defecto **12** (Martha); cada persona que simule en la misma red puede usar el
@@ -333,8 +368,9 @@ suyo: `ROS_DOMAIN_ID=31 ./sim.sh`.
 ## 6. Estado y lo que falta
 
 **Funciona:** Docker, Martha en la casa RoboCup@Home con `planar_move`, teleop holonómico, lidar e
-IMU simulados con los nombres del contrato, pruebas del URDF, navegación autónoma con Nav2 (modelo
-Omni) sobre el mapa de la casa y waypoints con nombre.
+IMU simulados con los nombres del contrato, pruebas del URDF, navegación autónoma con Nav2 y el PPO
+de la tesis sobre el mapa de la casa, con waypoints con nombre, filtro de seguridad a 360° probado en
+Gazebo contra cajas (`andesrobot_safety/scripts/prueba_caja.py`).
 
 **Lo que viene** (en este orden aproximado):
 
@@ -346,7 +382,7 @@ Omni) sobre el mapa de la casa y waypoints con nombre.
 | Navegación | SLAM (modo mapeo) en martha_ws. El driver del A2M8 real ya está (`lidar.launch.py`) y hay dos mapas reales del 2026-10-21 en `maps/` | `andesrobot_slam` |
 | Navegación | `/nav/pose` y el servicio `/nav/set_initial_pose` del contrato (hoy AMCL parte en la pose del launch) | `andesrobot_navigation` |
 | Navegación | Mapa y `base_zone` propios de Martha (la arquitectura los pide por robot; hoy `base` es la de Milo) | `maps/` |
-| Navegación | Filtro de seguridad que también mire a los lados; el mux pasa a publicar `/nav/cmd_vel_mux` | `andesrobot_safety` |
+| Navegación | Conectar el filtro de seguridad: el mux pasa a publicar `/nav/cmd_vel_mux` | `andesrobot_navigation` |
 | Ambos | `robot.sh` para el portátil de Martha | raíz |
 
 ---

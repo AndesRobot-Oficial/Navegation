@@ -1,0 +1,16 @@
+# Filtro de seguridad de Martha en MODO TECLADO (sim y robot real), como safety.yaml de Milo.
+# Lo lee safety_filter.py al arrancar (declare_parameter / get_parameter).
+# Para cambiarlos: editar aquí, ./sim.sh build y volver a lanzar.
+safety_filter_node:
+  ros__parameters:
+    stop_distance: 0.30       # [m] no se acerca más que esto (desde el borde del robot)
+    slow_distance: 0.70       # [m] desde aquí empieza a frenar
+    side_margin: 0.10         # [m] holgura a cada lado del corredor
+    rotation_clearance: 0.15  # [m] holgura para girar en el lugar
+    max_linear: 0.4           # [m/s] rapidez máxima, combinando linear.x y linear.y
+    max_angular: 1.0          # [rad/s]
+    # Caja del robot en base_footprint: la huella de nav2_params.yaml (0.58 x 0.41 m, centrada).
+    footprint_half_length: 0.29
+    footprint_half_width: 0.205
+    scan_timeout: 0.5         # [s] sin lidar -> se detiene
+    cmd_timeout: 0.0          # [s] 0 = mantiene el último comando (teleop teclado)

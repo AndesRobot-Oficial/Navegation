@@ -1,0 +1,20 @@
+# Filtro de seguridad de Martha en MODO NAVEGACIÓN (Nav2). Es el que usa por defecto
+# launch/safety.launch.py. Igual que safety.yaml salvo lo marcado con "NAV:" (como en Milo).
+safety_filter_node:
+  ros__parameters:
+    stop_distance: 0.30
+    slow_distance: 0.70
+    side_margin: 0.10
+    # NAV: Nav2 ya revisa el footprint al planear; aquí solo una holgura chica para girar en el
+    # lugar.
+    rotation_clearance: 0.08
+    # NAV: no bloquear los giros mientras se mueve, para que Nav2 pueda corregir el rumbo en una
+    # puerta. Girar EN EL LUGAR sigue bloqueado si hay algo dentro del radio de giro.
+    turn_check_only_in_place: true
+    max_linear: 0.4
+    max_angular: 1.0
+    footprint_half_length: 0.29
+    footprint_half_width: 0.205
+    scan_timeout: 0.5
+    # NAV: si el mux deja de mandar comandos por 0.5 s, se detiene (lo pide el contrato).
+    cmd_timeout: 0.5

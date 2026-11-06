@@ -13,10 +13,11 @@
 #   ./sim.sh sin-gazebo      sin la ventana de Gazebo (más liviano; RViz igual se abre)
 #   ./sim.sh software        render por CPU (si Gazebo/RViz se ven NEGROS); más lento
 #   ./sim.sh gpu             muestra con qué tarjeta está dibujando el contenedor
-#   ./sim.sh nav [mapa]      navegación autónoma (Nav2) con un mapa de maps/ (default: casa)
+#   ./sim.sh nav [mapa] [ppo|dwb]  navegación con un mapa de maps/ (default: casa, con el PPO)
 #   ./sim.sh ir <lugar> [...] (otra terminal) mandar a Martha a waypoints: ./sim.sh ir sofa / --lista
+#   ./sim.sh buscar <objeto> [mueble]  (otra terminal) PRUEBA: buscar un objeto sala por sala
 set -e
-# (Las líneas 2-17 de arriba son la ayuda: el "sed -n '2,17p'" de más abajo las imprime
+# (Las líneas 2-18 de arriba son la ayuda: el "sed -n '2,18p'" de más abajo las imprime
 #  cuando escribes una opción que no existe. Por eso los comentarios explicativos van aquí.)
 #
 # Es el mismo esquema de milo_ws: el código vive en tu PC (martha_ws/ros2_ws) y el contenedor lo
@@ -56,13 +57,20 @@ case "$1" in
   # Con otro mapa:  ./sim.sh ir --ubicaciones /maps/<mapa>_lugares.yaml <lugar>
   ir)     martha_need_running; shift
           exec $DC exec ros bash -ic "ros2 run andesrobot_navigation ir_a $*" ;;
+  # PRUEBA de la búsqueda de objetos con Visión. Lanza una visión simulada que "ve" el objeto en
+  # el mueble indicado (counter por defecto) y busca sala por sala (maps/casa_objetos.yaml).
+  # Con el object_detector_node real de Visión, se usa solo buscar_objeto, sin la simulada.
+  buscar) martha_need_running; [ -n "$2" ] || { echo "[martha] Uso: ./sim.sh buscar <objeto> [mueble]"; exit 1; }
+          exec $DC exec ros bash -ic "ros2 run andesrobot_navigation vision_simulada --ros-args -p use_sim_time:=true -p objeto:=$2 -p en:=${3:-counter} & sleep 2; ros2 run andesrobot_navigation buscar_objeto $2; kill %1" ;;
   # Navegación: necesita un mapa en maps/ (<mapa>.yaml + .pgm) y sus waypoints (<mapa>_lugares.yaml).
-  nav)    MAPA="${2:-casa}"
+  # Tercer argumento: quién decide las velocidades, la política de la tesis (ppo) o Nav2 (dwb).
+  nav)    MAPA="${2:-casa}"; CONTROL="${3:-ppo}"
+          [ "$CONTROL" = ppo ] || [ "$CONTROL" = dwb ] || { echo "[martha] Controlador: ppo o dwb, no $CONTROL"; exit 1; }
           [ -f "maps/$MAPA.yaml" ] || { echo "[martha] No existe el mapa maps/$MAPA.yaml. Hay:"; ls maps/*.yaml 2>/dev/null | grep -v _lugares | xargs -n1 basename | sed 's/.yaml$//; s/^/  /'; exit 1; } ;;
   # Estas opciones no hacen nada aquí: siguen hacia abajo a levantar la simulación.
   ""|cpu|sin-gazebo|software|mecanum) ;;
-  # Cualquier otra cosa: mostrar la ayuda (líneas 2 a 17 de este archivo) y salir con error.
-  *) sed -n '2,17p' "$0"; exit 1 ;;
+  # Cualquier otra cosa: mostrar la ayuda (líneas 2 a 18 de este archivo) y salir con error.
+  *) sed -n '2,18p' "$0"; exit 1 ;;
 esac
 
 # Por defecto se abre la ventana de Gazebo; con "sin-gazebo" no (ahorra GPU, la física igual corre).
@@ -79,13 +87,16 @@ martha_up
 # El mapa de la casa coincide con el mundo de Gazebo, así que AMCL parte donde aparece Martha
 # (afuera de la puerta del living; lo pone sim_navigation.launch.py).
 if [ "$1" = "nav" ]; then
+  # Recompilar antes de lanzar (toma segundos): así un ejecutable nuevo de un paquete que ya estaba
+  # compilado, como ppo_controller después de un git pull, existe al lanzar.
+  $DC exec ros bash -ic 'cd /ros2_ws && colcon build --symlink-install'
   echo
-  echo "[martha] Navegación con el mapa maps/$MAPA.yaml. En otra terminal:"
+  echo "[martha] Navegación ($CONTROL) con el mapa maps/$MAPA.yaml. En otra terminal:"
   echo "[martha]   ./sim.sh ir --lista        ver los waypoints"
   echo "[martha]   ./sim.sh ir sofa           mandar a Martha (o '2D Goal Pose' en RViz)"
   echo "[martha]   ./sim.sh teleop            el teclado le quita el control a Nav2 mientras lo usas"
   echo
-  exec $DC exec ros bash -ic "ros2 launch andesrobot_navigation sim_navigation.launch.py map:=/maps/$MAPA.yaml ubicaciones:=/maps/${MAPA}_lugares.yaml"
+  exec $DC exec ros bash -ic "ros2 launch andesrobot_navigation sim_navigation.launch.py controller:=$CONTROL map:=/maps/$MAPA.yaml ubicaciones:=/maps/${MAPA}_lugares.yaml"
 fi
 
 echo

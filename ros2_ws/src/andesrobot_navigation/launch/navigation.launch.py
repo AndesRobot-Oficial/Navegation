@@ -8,6 +8,10 @@ Salidas (contrato):   /cmd_vel, /nav/map, TF map -> odom, acción /nav/navigate_
 Internos de Navegación: /nav/scan_filtered, /nav/cmd_vel_raw, /nav/cmd_vel_planner, costmaps,
                        /plan, /nav/ubicaciones (marcadores de los waypoints en RViz)
 
+controller:=ppo (por defecto) o dwb elige quién decide las velocidades al seguir la ruta:
+  ppo  la política de la tesis de Nicolás (ppo_controller.py, atiende /follow_path)
+  dwb  el controlador clásico de Nav2, de respaldo y para comparar
+
 Qué es cada nodo de la arquitectura:
   localization_node = map_server + amcl (+ filtro_torre, que limpia el scan)
   path_planner_node = planner_server + controller_server + smoother + behaviors + bt_navigator
@@ -20,6 +24,7 @@ con remaps: en nav2_bringup (Humble) los tópicos son /map, /cmd_vel y /navigate
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
+from launch.conditions import LaunchConfigurationEquals
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
@@ -85,13 +90,42 @@ def generate_launch_description():
     )
 
     # ---------------- Navegación ----------------
+    # Con el PPO, controller_server sigue corriendo porque mantiene el costmap local que usan las
+    # recuperaciones de Nav2 (girar, retroceder), pero con su acción renombrada para que nadie le
+    # pida seguir la ruta. Como en /nav/navigate_to_pose, se remapean sus 5 partes.
+    dwb_en_espera = [(f'follow_path/_action/{p}', f'dwb_en_espera/_action/{p}')
+                     for p in ('send_goal', 'cancel_goal', 'get_result', 'feedback', 'status')]
     controller = Node(
         package='nav2_controller',
         executable='controller_server',
         name='controller_server',
         output='screen',
         parameters=common,
+        remappings=tf + [('cmd_vel', '/nav/cmd_vel_raw')] + dwb_en_espera,
+        condition=LaunchConfigurationEquals('controller', 'ppo'),
+    )
+    # Con DWB: controller_server atiende /follow_path, como siempre.
+    controller_dwb = Node(
+        package='nav2_controller',
+        executable='controller_server',
+        name='controller_server',
+        output='screen',
+        parameters=common,
         remappings=tf + [('cmd_vel', '/nav/cmd_vel_raw')],
+        condition=LaunchConfigurationEquals('controller', 'dwb'),
+    )
+    # El PPO: atiende /follow_path en vez de controller_server. Lee el scan sin filtrar porque se
+    # entrenó viendo los postes de la torre, y su salida no pasa por velocity_smoother.
+    ppo = Node(
+        package='andesrobot_navigation',
+        executable='ppo_controller',
+        name='ppo_controller',
+        output='screen',
+        parameters=[{'use_sim_time': use_sim_time,
+                     'politica': LaunchConfiguration('politica')}],
+        remappings=tf + [('scan', '/nav/scan'), ('odom', '/base/odom'),
+                         ('cmd_vel', '/nav/cmd_vel_planner')],
+        condition=LaunchConfigurationEquals('controller', 'ppo'),
     )
     smoother = Node(
         package='nav2_smoother',
@@ -158,8 +192,18 @@ def generate_launch_description():
         output='screen',
         parameters=[PathJoinSubstitution([pkg, 'config', 'twist_mux.yaml']),
                     {'use_sim_time': use_sim_time}],
-        # Sin filtro de seguridad todavía: el mux publica directo en /cmd_vel (twist_mux.yaml).
+        # El filtro de seguridad aún no está conectado (NAV-10): publica en /cmd_vel.
         remappings=[('cmd_vel_out', '/cmd_vel')],
+    )
+
+    # ---------------- Girar buscando (/nav/search_rotate) ----------------
+    # Gira en el lugar, despacio, mientras Visión busca un objeto. Publica en /nav/cmd_vel_look.
+    girar = Node(
+        package='andesrobot_navigation',
+        executable='girar_buscando',
+        name='girar_buscando',
+        output='screen',
+        parameters=[{'use_sim_time': use_sim_time}],
     )
 
     # ---------------- Waypoints en RViz ----------------
@@ -189,11 +233,18 @@ def generate_launch_description():
         DeclareLaunchArgument('x', default_value='0.0'),
         DeclareLaunchArgument('y', default_value='0.0'),
         DeclareLaunchArgument('yaw', default_value='0.0'),
+        DeclareLaunchArgument('controller', default_value='ppo', choices=['ppo', 'dwb'],
+                              description='Quién decide las velocidades al seguir la ruta'),
+        # policies/ de tu PC, que compose.yaml monta como /policies (igual que maps/).
+        DeclareLaunchArgument('politica', default_value='/policies/martha_holo.npz',
+                              description='La política exportada de la tesis (.npz)'),
         filtro,
         map_server,
         amcl,
         lm_loc,
         controller,
+        controller_dwb,
+        ppo,
         smoother,
         planner,
         behaviors,
@@ -201,5 +252,6 @@ def generate_launch_description():
         vel_smoother,
         lm_nav,
         mux,
+        girar,
         markers,
     ])

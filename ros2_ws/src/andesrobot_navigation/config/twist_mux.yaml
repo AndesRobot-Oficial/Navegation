@@ -11,8 +11,8 @@
 #                                                       tecla le quitas el control a Nav2.
 #
 # Salida: /cmd_vel (remapeada en navigation.launch.py). En la arquitectura la salida del mux es
-# /nav/cmd_vel_mux y el único que publica /cmd_vel es safety_filter_node; Martha todavía no tiene
-# ese filtro (andesrobot_safety), así que mientras tanto el mux publica directo en /cmd_vel.
+# /nav/cmd_vel_mux y el único que publica /cmd_vel es safety_filter_node (andesrobot_safety). Ese
+# filtro ya existe pero aún no está conectado aquí (tarea NAV-10): por ahora el mux publica directo.
 twist_mux:
   ros__parameters:
     topics:
