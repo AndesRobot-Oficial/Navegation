@@ -1,0 +1,18 @@
+# Dónde buscar cada objeto en la casa. Lo usa ./sim.sh buscar <objeto> (buscar_objeto.py).
+#
+# DE PRUEBA: el orden de las salas para cada objeto lo definirá el orquestador de HRI (con la
+# estadística del equipo). Aquí solo sirve para probar el flujo con Visión.
+#
+# salas:   los muebles de cada sala (sus nombres son waypoints de casa_lugares.yaml)
+# objetos: las salas donde buscar, de la más probable a la menos. Un objeto que no está aquí se
+#          busca en todas las salas, en el orden de abajo.
+salas:
+  kitchen: [cabinet, refrigerator, counter, sink, cooking_table, dishwasher, kitchen_trash_bin,
+            dinner_table]
+  living_room: [tv_stand, sofa_7, coffee_table]
+  laundry: [laundry_table, washing_machine, shelf, laundry_trash_bin]
+  bedroom: [bed, bedside_table, coat_rack]
+
+objetos:
+  sprite: [kitchen, living_room, laundry, bedroom]
+  coca_cola: [kitchen, living_room, laundry, bedroom]

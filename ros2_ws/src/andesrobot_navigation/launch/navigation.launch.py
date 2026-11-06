@@ -196,6 +196,16 @@ def generate_launch_description():
         remappings=[('cmd_vel_out', '/cmd_vel')],
     )
 
+    # ---------------- Girar buscando (/nav/search_rotate) ----------------
+    # Gira en el lugar, despacio, mientras Visión busca un objeto. Publica en /nav/cmd_vel_look.
+    girar = Node(
+        package='andesrobot_navigation',
+        executable='girar_buscando',
+        name='girar_buscando',
+        output='screen',
+        parameters=[{'use_sim_time': use_sim_time}],
+    )
+
     # ---------------- Waypoints en RViz ----------------
     markers = Node(
         package='andesrobot_navigation',
@@ -242,5 +252,6 @@ def generate_launch_description():
         vel_smoother,
         lm_nav,
         mux,
+        girar,
         markers,
     ])

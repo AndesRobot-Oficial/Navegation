@@ -171,7 +171,8 @@ amarillas, `/base/odom`).
 El mapa de la casa ya está en `maps/casa.yaml` (lo hizo Milo; en la simulación coincide con el
 mundo de Gazebo). Martha parte **afuera de la puerta del living**, mirando hacia adentro.
 Informe completo, con la figura de todos los lugares:
-[docs/navegacion/README.md](docs/navegacion/README.md).
+[docs/navegacion/README.md](docs/navegacion/README.md). **Guía paso a paso del PPO, el filtro de
+seguridad y la búsqueda de objetos:** [docs/navegacion/GUIA.md](docs/navegacion/GUIA.md).
 
 #### Paso 1 · Anotar dónde queda cada cosa
 
@@ -253,6 +254,30 @@ que borra los postes de la torre (`/nav/scan` → `/nav/scan_filtered`); Nav2 us
 movimiento **Omni**, así que Martha puede ir de lado.
 </details>
 
+#### Prueba · Buscar un objeto con Visión
+
+El flujo acordado con Visión (de prueba, mientras no estén el orquestador ni el detector real):
+el orquestador le dice a Navegación a qué sala ir y a Visión qué objeto buscar. Navegación va a la
+sala más probable (`maps/casa_objetos.yaml`) y **gira 360° despacio** (`/nav/search_rotate`,
+0.3 rad/s) mientras Visión responde si lo vio (`/vision/object_detected`, `true`/`false`). Si lo
+vio, sigue girando hasta que deja de verlo, toma el ángulo del medio como dirección del objeto y
+va al mueble de esa sala que queda en esa dirección; si no, a la sala siguiente. Al terminar,
+lo encuentre o no, **vuelve a casa**: el waypoint `base` (cámbialo con `--casa <lugar>`).
+
+| Terminal | Comando | Qué hace |
+|:-:|---|---|
+| 1 | `./sim.sh nav` | la navegación de siempre (incluye el nodo que gira) |
+| 2 | `./sim.sh buscar sprite` | una visión simulada "pone" la Sprite en `counter` y Martha la busca |
+| 2 | `./sim.sh buscar sprite coffee_table` | la Sprite en el living: primero la busca en la cocina |
+
+La visión simulada solo existe para probar: ve el objeto si queda dentro de un cono de 60°, a menos
+de 4 m y sin un muro del mapa en medio. Con el `object_detector_node` real de Visión se corre solo
+`ros2 run andesrobot_navigation buscar_objeto sprite`. Los nombres de los tópicos de Visión
+(`/vision/object_detected` y `/vision/target_object`) son los de la prueba: falta confirmarlos con
+Visión y agregarlos al contrato. Como Visión solo dice `true`/`false` y no dónde está el objeto,
+Navegación elige el mueble por esa dirección: con muebles juntos puede equivocarse.
+
+
 ---
 
 ## 3. Todos los comandos
@@ -269,6 +294,7 @@ movimiento **Omni**, así que Martha puede ir de lado.
 | `./sim.sh stop` | apagar el contenedor |
 | `./sim.sh cpu` / `software` / `sin-gazebo` | sin NVIDIA / render por CPU / sin ventana de Gazebo |
 | `./sim.sh gpu` | con qué tarjeta gráfica está dibujando |
+| `./sim.sh buscar <objeto> [mueble]` | prueba de búsqueda con una visión simulada |
 | `./sim.sh nav [mapa] [ppo\|dwb]` | navegación autónoma con un mapa de `maps/` (por defecto `casa`, con el PPO) |
 | `./sim.sh ir <lugar> [...]` | mandar a Martha a uno o varios waypoints (`--lista` para verlos) |
 
@@ -283,7 +309,7 @@ martha_ws/
 │   ├── martha.repos           drivers que se compilan en la imagen (RPLIDAR, micro-ROS agent)
 │   ├── compose.robot.yaml     extra para el laptop de Martha: acceso a los USB-serie
 │   └── udev/                  reglas para /dev/martha_esp32 y /dev/martha_lidar (en el host)
-├── docs/navegacion/           informe de los lugares con nombre (y sus figuras)
+├── docs/navegacion/           informe de los lugares con nombre y GUIA.md (PPO, filtro, búsqueda)
 ├── maps/                      mapa de la casa (casa.pgm + casa.yaml) y sus waypoints
 │                              (casa_lugares.yaml), y los mapas reales hechos con Martha
 │                              (lab_robotica, salon_real); en Docker se ve como /maps

@@ -15,8 +15,9 @@
 #   ./sim.sh gpu             muestra con qué tarjeta está dibujando el contenedor
 #   ./sim.sh nav [mapa] [ppo|dwb]  navegación con un mapa de maps/ (default: casa, con el PPO)
 #   ./sim.sh ir <lugar> [...] (otra terminal) mandar a Martha a waypoints: ./sim.sh ir sofa / --lista
+#   ./sim.sh buscar <objeto> [mueble]  (otra terminal) PRUEBA: buscar un objeto sala por sala
 set -e
-# (Las líneas 2-17 de arriba son la ayuda: el "sed -n '2,17p'" de más abajo las imprime
+# (Las líneas 2-18 de arriba son la ayuda: el "sed -n '2,18p'" de más abajo las imprime
 #  cuando escribes una opción que no existe. Por eso los comentarios explicativos van aquí.)
 #
 # Es el mismo esquema de milo_ws: el código vive en tu PC (martha_ws/ros2_ws) y el contenedor lo
@@ -56,6 +57,11 @@ case "$1" in
   # Con otro mapa:  ./sim.sh ir --ubicaciones /maps/<mapa>_lugares.yaml <lugar>
   ir)     martha_need_running; shift
           exec $DC exec ros bash -ic "ros2 run andesrobot_navigation ir_a $*" ;;
+  # PRUEBA de la búsqueda de objetos con Visión. Lanza una visión simulada que "ve" el objeto en
+  # el mueble indicado (counter por defecto) y busca sala por sala (maps/casa_objetos.yaml).
+  # Con el object_detector_node real de Visión, se usa solo buscar_objeto, sin la simulada.
+  buscar) martha_need_running; [ -n "$2" ] || { echo "[martha] Uso: ./sim.sh buscar <objeto> [mueble]"; exit 1; }
+          exec $DC exec ros bash -ic "ros2 run andesrobot_navigation vision_simulada --ros-args -p use_sim_time:=true -p objeto:=$2 -p en:=${3:-counter} & sleep 2; ros2 run andesrobot_navigation buscar_objeto $2; kill %1" ;;
   # Navegación: necesita un mapa en maps/ (<mapa>.yaml + .pgm) y sus waypoints (<mapa>_lugares.yaml).
   # Tercer argumento: quién decide las velocidades, la política de la tesis (ppo) o Nav2 (dwb).
   nav)    MAPA="${2:-casa}"; CONTROL="${3:-ppo}"
@@ -63,8 +69,8 @@ case "$1" in
           [ -f "maps/$MAPA.yaml" ] || { echo "[martha] No existe el mapa maps/$MAPA.yaml. Hay:"; ls maps/*.yaml 2>/dev/null | grep -v _lugares | xargs -n1 basename | sed 's/.yaml$//; s/^/  /'; exit 1; } ;;
   # Estas opciones no hacen nada aquí: siguen hacia abajo a levantar la simulación.
   ""|cpu|sin-gazebo|software|mecanum) ;;
-  # Cualquier otra cosa: mostrar la ayuda (líneas 2 a 17 de este archivo) y salir con error.
-  *) sed -n '2,17p' "$0"; exit 1 ;;
+  # Cualquier otra cosa: mostrar la ayuda (líneas 2 a 18 de este archivo) y salir con error.
+  *) sed -n '2,18p' "$0"; exit 1 ;;
 esac
 
 # Por defecto se abre la ventana de Gazebo; con "sin-gazebo" no (ahorra GPU, la física igual corre).
